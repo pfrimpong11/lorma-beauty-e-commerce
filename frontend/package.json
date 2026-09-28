@@ -1,7 +1,7 @@
 {
   "name": "lorma-beauty-pos-frontend",
   "version": "1.0.0",
-  "description": "Lorma Beauty POS \u2014 Next.js PWA",
+  "description": "Lorma Beauty POS — Next.js PWA",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {

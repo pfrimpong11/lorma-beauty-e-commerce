@@ -1,12 +1,29 @@
 import type { Metadata, Viewport } from 'next';
-import { Poppins } from 'next/font/google';
+import localFont from 'next/font/local';
 import { readServerConfig } from '@/lib/runtime-config';
 import { Providers } from './providers';
 import './globals.css';
 
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
+/*
+ * Poppins, served from this repository rather than fetched from Google.
+ *
+ * next/font/google downloads the font during `next build`. That made every
+ * production build depend on Google answering from wherever the build runs,
+ * and on a VPS it timed out after three retries and failed the deploy
+ * outright. A build should not need the public internet to succeed.
+ *
+ * Self-hosting also means no request to a third party when a cashier opens
+ * the till, which matters on a shop connection and keeps the fonts working
+ * offline — the whole point of a PWA the shop can still sell from.
+ */
+const poppins = localFont({
+  src: [
+    { path: './fonts/poppins-latin-300-normal.woff2', weight: '300', style: 'normal' },
+    { path: './fonts/poppins-latin-400-normal.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/poppins-latin-500-normal.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/poppins-latin-600-normal.woff2', weight: '600', style: 'normal' },
+    { path: './fonts/poppins-latin-700-normal.woff2', weight: '700', style: 'normal' },
+  ],
   variable: '--font-poppins',
   display: 'swap',
 });

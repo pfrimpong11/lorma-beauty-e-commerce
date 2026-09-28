@@ -81,7 +81,7 @@ try {
   check('owner sees the sales register', labels(adminNavFor(ADMIN)).includes('Sales'), true);
 
   console.log('\nthe till is the till');
-  const { readFileSync } = await import('node:fs');
+  const { existsSync, readFileSync } = await import('node:fs');
   const till = readFileSync('src/components/shell/TillShell.tsx', 'utf8');
   check('no back-office switcher in the till', till.includes('SectionSwitcher'), false);
   check('the till gates on onboarding', till.includes('mustChangePassword'), true);
@@ -255,6 +255,19 @@ try {
     /leading-tight tabular/.test(moves), true);
   check('the pair is read as a sentence, not two loose numbers',
     /from \{m\.previousQty\} to \{m\.newQty\}/.test(moves), true);
+
+  console.log('\nthe build needs no third party');
+  // next/font/google fetches during `next build`, so a VPS that cannot reach
+  // Google fails the deploy outright — which is what happened.
+  check('no font is fetched at build time',
+    /^import .*from 'next\/font\/google'/m.test(layout), false);
+  check('Poppins is served from this repository',
+    /from 'next\/font\/local'/.test(layout), true);
+  check('every weight the design uses is present',
+    ['300', '400', '500', '600', '700']
+      .filter((w) => !existsSync(`src/app/fonts/poppins-latin-${w}-normal.woff2`)), []);
+  check('the CSS variable is unchanged, so nothing else had to move',
+    /variable: '--font-poppins'/.test(layout), true);
 
   console.log('\nsection switcher');
   check('hidden for sales rep', canUseTill(CASHIER) && canUseBackOffice(CASHIER), false);

@@ -13,13 +13,20 @@
 #                        the API directly when it should only ever be
 #                        reached through the frontend.
 #
-#   dokploy-network      Traefik can only route to services attached to it.
-#                        The app keeps its own private network as well, so
-#                        Postgres stays off the shared one entirely.
+#   dokploy-network      Traefik can only route to the frontend here, and
+#                        the database is a Dokploy service that lives on
+#                        this network too, so anything that talks to it
+#                        must join. The stack keeps lorma-net for its own
+#                        traffic between frontend and backend.
 #
 #   Proxy settings       The browser now arrives through Traefik, so the
 #                        API is served from the frontend's own origin and
 #                        the cookie has to be Secure behind TLS.
+#
+# The database is NOT defined here. It is a Dokploy service with its own
+# lifecycle and backups; DATABASE_URL points at it by its Dokploy hostname.
+# Defining one here as well would quietly collect a second set of data that
+# nobody backs up.
 #
 # In Dokploy, add a Domain pointing at service "frontend", port 3000.
 # Never expose "backend" as a domain: the frontend proxies /api to it.
@@ -35,32 +42,6 @@
 name: lorma-beauty-pos
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      # Deterministic collation so ORDER BY on product names is stable
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-      TZ: ${TZ:-Africa/Accra}
-    volumes:
-      # Named volume — container restarts and rebuilds never destroy data.
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - lorma-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
-    # Never published. Postgres is reachable only on lorma-net, which
-    # Traefik is not attached to.
-
-  # One-shot migration runner. The API waits for this to finish, so
-  # migrations never race against a starting (or replicated) app.
   migrate:
     build:
       context: ./backend
@@ -75,6 +56,17 @@ services:
       - sh
       - -c
       - |
+        # Nothing here waits on the database any more: it is a Dokploy
+        # service with its own lifecycle, so a stack redeploy can easily
+        # start before it is accepting connections. Retry briefly rather
+        # than failing a deploy over a few seconds of startup.
+        n=0
+        until npx prisma migrate deploy; do
+          n=$$((n+1))
+          if [ $$n -ge 10 ]; then break; fi
+          echo "  database not ready yet (attempt $$n/10), retrying in 3s..."
+          sleep 3
+        done
         npx prisma migrate deploy && exit 0
         echo ""
         echo "──────────────────────────────────────────────────────────────"
@@ -89,11 +81,10 @@ services:
         echo "        = in the password. Generate a URL-safe one."
         echo "──────────────────────────────────────────────────────────────"
         exit 1
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - lorma-net
+      # The Dokploy database service is reachable only here.
+      - dokploy-network
 
   backend:
     build:
@@ -125,13 +116,17 @@ services:
       ARKESEL_API_KEY: ${ARKESEL_API_KEY:-}
       SMS_SENDER_ID: ${SMS_SENDER_ID:-LormaBeauty}
       TZ: ${TZ:-Africa/Accra}
+
+    # Migrations must have finished before the API serves a request against
+    # a schema that may not exist yet.
     depends_on:
-      postgres:
-        condition: service_healthy
       migrate:
         condition: service_completed_successfully
+
     networks:
       - lorma-net
+      # The Dokploy database service is reachable only here.
+      - dokploy-network
     # No published port. The frontend proxies /api to it over the internal
     # network; nothing outside the stack should reach the API directly.
     expose:
@@ -170,6 +165,12 @@ services:
       - lorma-net
       # Traefik lives here; without it no domain can reach this service.
       - dokploy-network
+    labels:
+      # Pin Traefik to the network it can actually reach. Without this it may
+      # route to this container's lorma-net address and answer 504, which
+      # reads as the app being down when it is running perfectly.
+      - traefik.docker.network=dokploy-network
+
     # Traefik connects over dokploy-network, so no host binding is needed.
     expose:
       - "3000"
@@ -183,6 +184,3 @@ networks:
     name: lorma-net
     driver: bridge
 
-volumes:
-  postgres-data:
-    name: lorma-postgres-data

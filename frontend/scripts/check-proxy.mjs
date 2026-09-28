@@ -112,10 +112,20 @@ if (existsSync(dokployPath)) {
   check('Traefik can reach the frontend', /- dokploy-network/.test(dk), true);
   check('the shared network is external, not owned here',
     /dokploy-network:\n\s+external: true/.test(dk), true);
-  // Postgres on the shared network would be reachable by every other stack
-  // on that server.
-  check('the database stays off the shared network',
-    (dk.match(/- dokploy-network/g) ?? []).length, 1);
+  // The database is a Dokploy service on the shared network, so everything
+  // that talks to it has to join — but the stack must not define a second
+  // Postgres of its own, which would collect data nobody backs up.
+  check('no second database is defined here', /^  postgres:$/m.test(dk), false);
+  check('and no orphaned volume for one', /postgres-data/.test(dk), false);
+  // Traefik picks an IP from whichever network it finds first; on a container
+  // attached to two that can be the one it cannot reach, answering 504.
+  check('Traefik is pinned to the network it can reach',
+    /traefik\.docker\.network=dokploy-network/.test(dk), true);
+  check('migrations finish before the API starts',
+    /migrate:\n\s+condition: service_completed_successfully/.test(dk), true);
+  // Nothing waits on the database now, so a stack redeploy can outrun it.
+  check('a database still starting does not fail the deploy',
+    /until npx prisma migrate deploy/.test(dk), true);
   check('the browser is told to use this origin', /API_URL: ""/.test(dk), true);
   check('cookies are Secure behind TLS', /COOKIE_SECURE: "true"/.test(dk), true);
   check('forwarded headers are trusted', /TRUST_PROXY: "true"/.test(dk), true);

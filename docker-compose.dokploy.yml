@@ -68,7 +68,27 @@ services:
     restart: "no"
     environment:
       DATABASE_URL: ${DATABASE_URL}
-    command: ["npx", "prisma", "migrate", "deploy"]
+    # Dokploy reports only "exit 1" and throws the container output away, so
+    # the one thing that explains the failure is printed here, on the deploy
+    # log itself. The password is stripped before anything is echoed.
+    command:
+      - sh
+      - -c
+      - |
+        npx prisma migrate deploy && exit 0
+        echo ""
+        echo "──────────────────────────────────────────────────────────────"
+        echo " Migrations failed. DATABASE_URL, with the password removed:"
+        echo "   $$(echo "$$DATABASE_URL" | sed -E 's#(://[^:]*):[^@]*@#\1:****@#')"
+        echo ""
+        echo " P1001  cannot reach the server. The host must be the compose"
+        echo "        service name 'postgres', never localhost."
+        echo " P1000  wrong user or password. They must match POSTGRES_USER"
+        echo "        and POSTGRES_PASSWORD exactly."
+        echo " P1013  the connection string will not parse, usually a / + or"
+        echo "        = in the password. Generate a URL-safe one."
+        echo "──────────────────────────────────────────────────────────────"
+        exit 1
     depends_on:
       postgres:
         condition: service_healthy

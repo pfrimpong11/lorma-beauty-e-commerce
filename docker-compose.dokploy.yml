@@ -56,31 +56,54 @@ services:
       - sh
       - -c
       - |
-        # Nothing here waits on the database any more: it is a Dokploy
-        # service with its own lifecycle, so a stack redeploy can easily
-        # start before it is accepting connections. Retry briefly rather
-        # than failing a deploy over a few seconds of startup.
-        n=0
-        until npx prisma migrate deploy; do
-          n=$$((n+1))
-          if [ $$n -ge 10 ]; then break; fi
-          echo "  database not ready yet (attempt $$n/10), retrying in 3s..."
+        # Dokploy reports only "exit 1" and discards this output, so none of
+        # it reaches the deploy log. Read it with:
+        #   docker logs <stack>-migrate-1
+        redacted=$$(printf '%s' "$$DATABASE_URL" | sed -E 's#(://[^:]*):[^@]*@#\1:****@#')
+        host=$$(printf '%s' "$$DATABASE_URL" | sed -E 's#^[^@]*@([^:/?]+).*#\1#')
+
+        attempt=1
+        while : ; do
+          out=$$(npx prisma migrate deploy 2>&1)
+          status=$$?
+          printf '%s\n' "$$out"
+          if [ $$status -eq 0 ]; then exit 0; fi
+
+          # Only an unreachable server is worth waiting for. A wrong password
+          # or an unparseable URL will never fix itself, so fail at once
+          # rather than spending thirty seconds pretending otherwise.
+          case "$$out" in
+            *P1001*) : ;;
+            *) break ;;
+          esac
+
+          if [ $$attempt -ge 10 ]; then break; fi
+          echo "  database not reachable yet (attempt $$attempt/10), retrying in 3s..."
+          attempt=$$((attempt + 1))
           sleep 3
         done
-        npx prisma migrate deploy && exit 0
+
         echo ""
-        echo "──────────────────────────────────────────────────────────────"
-        echo " Migrations failed. DATABASE_URL, with the password removed:"
-        echo "   $$(echo "$$DATABASE_URL" | sed -E 's#(://[^:]*):[^@]*@#\1:****@#')"
+        echo "--------------------------------------------------------------"
+        echo " Migrations failed."
         echo ""
-        echo " P1001  cannot reach the server. The host must be the compose"
-        echo "        service name 'postgres', never localhost."
-        echo " P1000  wrong user or password. They must match POSTGRES_USER"
-        echo "        and POSTGRES_PASSWORD exactly."
-        echo " P1013  the connection string will not parse, usually a / + or"
-        echo "        = in the password. Generate a URL-safe one."
-        echo "──────────────────────────────────────────────────────────────"
+        echo " DATABASE_URL (password removed):"
+        echo "   $$redacted"
+        echo ""
+        echo " The host in that URL resolves to:"
+        getent hosts "$$host" 2>/dev/null | sed 's/^/   /' || echo "   NOTHING - that name does not exist on this network"
+        echo ""
+        echo " P1001  cannot reach the server. The host must be the Dokploy"
+        echo "        database's internal hostname, copied from its page in"
+        echo "        Dokploy. It is NOT postgres and NOT localhost: this"
+        echo "        stack no longer runs a database of its own."
+        echo " P1000  wrong user or password. Take them from the Dokploy"
+        echo "        database page, not from any POSTGRES_ variable."
+        echo " P1013  the URL will not parse, usually a / + or = in the"
+        echo "        password. Generate a URL-safe one."
+        echo "--------------------------------------------------------------"
         exit 1
+
     networks:
       - lorma-net
       # The Dokploy database service is reachable only here.

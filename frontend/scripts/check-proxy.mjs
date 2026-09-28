@@ -125,7 +125,14 @@ if (existsSync(dokployPath)) {
     /migrate:\n\s+condition: service_completed_successfully/.test(dk), true);
   // Nothing waits on the database now, so a stack redeploy can outrun it.
   check('a database still starting does not fail the deploy',
-    /until npx prisma migrate deploy/.test(dk), true);
+    /database not reachable yet \(attempt/.test(dk), true);
+  // Waiting only helps when the server is unreachable. A wrong password or
+  // an unparseable URL will never fix itself.
+  check('only an unreachable server is retried', /\*P1001\*\) : ;;/.test(dk), true);
+  check('the failure names the Dokploy database, not a compose service',
+    /NOT postgres and NOT localhost/.test(dk), true);
+  check('it prints what the host actually resolves to',
+    /getent hosts/.test(dk), true);
   check('the browser is told to use this origin', /API_URL: ""/.test(dk), true);
   check('cookies are Secure behind TLS', /COOKIE_SECURE: "true"/.test(dk), true);
   check('forwarded headers are trusted', /TRUST_PROXY: "true"/.test(dk), true);

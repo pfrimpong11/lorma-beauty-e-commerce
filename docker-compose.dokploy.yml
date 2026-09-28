@@ -1,0 +1,167 @@
+# ==========================================================================
+# Lorma Beauty POS — Dokploy
+#
+# Point Dokploy's Compose Path at this file. Set every value under
+# Environment in the Dokploy UI, not in a .env file: Dokploy injects them
+# and nothing in this repository should ever hold a production secret.
+#
+# Three things differ from docker-compose.yml, and each has to be this way:
+#
+#   No published ports   Traefik reaches the containers over Dokploy's own
+#                        network. Binding host ports would clash with
+#                        whatever else that server runs, and would expose
+#                        the API directly when it should only ever be
+#                        reached through the frontend.
+#
+#   dokploy-network      Traefik can only route to services attached to it.
+#                        The app keeps its own private network as well, so
+#                        Postgres stays off the shared one entirely.
+#
+#   Proxy settings       The browser now arrives through Traefik, so the
+#                        API is served from the frontend's own origin and
+#                        the cookie has to be Secure behind TLS.
+#
+# In Dokploy, add a Domain pointing at service "frontend", port 3000.
+# Never expose "backend" as a domain: the frontend proxies /api to it.
+# ==========================================================================
+
+name: lorma-beauty-pos
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lorma-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Deterministic collation so ORDER BY on product names is stable
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      TZ: ${TZ:-Africa/Accra}
+    volumes:
+      # Named volume — container restarts and rebuilds never destroy data.
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - lorma-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    # Not published by default: the database is reachable only on the
+    # internal network. Uncomment for direct psql/GUI access in dev.
+    # ports:
+    #   - "${POSTGRES_PORT:-5432}:5432"
+
+  # One-shot migration runner. The API waits for this to finish, so
+  # migrations never race against a starting (or replicated) app.
+  migrate:
+    build:
+      context: ./backend
+      target: runtime
+    container_name: lorma-migrate
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    command: ["npx", "prisma", "migrate", "deploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lorma-net
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    container_name: lorma-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      BACKEND_PORT: 4000
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      # Traefik is a hop: X-Forwarded-* must be trusted for Secure cookies
+      # and for real client IPs in the audit log.
+      TRUST_PROXY: "true"
+      COOKIE_SECURE: "true"
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      RATE_LIMIT_TTL: ${RATE_LIMIT_TTL:-60}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CURRENCY: ${CURRENCY:-GHS}
+      # SMS. Optional: with no provider configured the shop still trades and
+      # every receipt message is recorded as queued, ready to send later.
+      SMS_PROVIDER: ${SMS_PROVIDER:-}
+      ARKESEL_API_KEY: ${ARKESEL_API_KEY:-}
+      SMS_SENDER_ID: ${SMS_SENDER_ID:-LormaBeauty}
+      TZ: ${TZ:-Africa/Accra}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - lorma-net
+    # No published port. The frontend proxies /api to it over the internal
+    # network; nothing outside the stack should reach the API directly.
+    expose:
+      - "4000"
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    container_name: lorma-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Read at request time and injected into the page — see
+      # frontend/src/lib/runtime-config.ts. Changing this needs a restart,
+      # not a rebuild.
+      # Behind a proxy the browser must use this origin, not an absolute
+      # URL that would resolve to whatever machine it is running on.
+      API_URL: ""
+      # Serve the API from this same origin: the browser calls /api here and
+      # Next forwards it to the backend across the compose network. Required
+      # for any client that is not this machine — a POS terminal on the LAN,
+      # a phone, a tunnel — because an absolute localhost URL would resolve
+      # to the client device instead. Set it to empty to turn the proxy off
+      # and have browsers call API_URL directly.
+      API_PROXY_TARGET: ${API_PROXY_TARGET-http://backend:4000}
+      APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Lorma Beauty POS}
+      CURRENCY: ${NEXT_PUBLIC_CURRENCY:-GHS}
+      CURRENCY_LOCALE: ${NEXT_PUBLIC_CURRENCY_LOCALE:-en-GH}
+      EXPIRY_WARNING_DAYS: ${NEXT_PUBLIC_EXPIRY_WARNING_DAYS:-30}
+      TZ: ${TZ:-Africa/Accra}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - lorma-net
+      # Traefik lives here; without it no domain can reach this service.
+      - dokploy-network
+    # Traefik connects over dokploy-network, so no host binding is needed.
+    expose:
+      - "3000"
+
+networks:
+  # Created by Dokploy when it installs Traefik; declared external so this
+  # stack joins it rather than trying to own it.
+  dokploy-network:
+    external: true
+  lorma-net:
+    name: lorma-net
+    driver: bridge
+
+volumes:
+  postgres-data:
+    name: lorma-postgres-data

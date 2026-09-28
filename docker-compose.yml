@@ -22,11 +22,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       # Deterministic collation so ORDER BY on product names is stable
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-      # SMS. Optional: with no provider configured the shop still trades and
-      # every receipt message is recorded as queued, ready to send later.
-      SMS_PROVIDER: ${SMS_PROVIDER:-}
-      ARKESEL_API_KEY: ${ARKESEL_API_KEY:-}
-      SMS_SENDER_ID: ${SMS_SENDER_ID:-LormaBeauty}
       TZ: ${TZ:-Africa/Accra}
     volumes:
       # Named volume — container restarts and rebuilds never destroy data.
@@ -84,6 +79,11 @@ services:
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       CURRENCY: ${CURRENCY:-GHS}
+      # SMS. Optional: with no provider configured the shop still trades and
+      # every receipt message is recorded as queued, ready to send later.
+      SMS_PROVIDER: ${SMS_PROVIDER:-}
+      ARKESEL_API_KEY: ${ARKESEL_API_KEY:-}
+      SMS_SENDER_ID: ${SMS_SENDER_ID:-LormaBeauty}
       TZ: ${TZ:-Africa/Accra}
     depends_on:
       postgres:

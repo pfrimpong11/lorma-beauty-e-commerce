@@ -216,12 +216,52 @@ docker exec -i lorma-postgres pg_restore -U lorma -d lorma_beauty_pos --clean < 
 
 ## Seed data
 
-Development credentials. **Never use these in production.**
+The seed creates two different things, and only one of them is optional.
+
+**Always created**, because a shop cannot run without them: 40 permissions,
+2 roles, the admin and cashier accounts, 10 categories, 10 settings keys, the
+four counters and the Walk-in Customer.
+
+**Only with `SEED_DEMO_DATA=true`**: 28 invented products with barcodes,
+batches, inventory and opening-balance movements, plus 3 invented customers.
+`npm run db:seed` sets it for you.
+
+The seed refuses to run with `NODE_ENV=production` unless explicitly
+overridden, and refuses to combine production with demo data at all. It never
+changes an existing user's password.
+
+### Development credentials
+
+**Never use these in production.** They only apply in demo mode; outside it
+the four `SEED_*` variables must be set, non-empty and at least 12
+characters.
 
 | Role | Email | Password |
 | --- | --- | --- |
 | Admin / Owner | `admin@lormabeauty.local` | `LormaAdmin!2024` |
 | Cashier | `cashier@lormabeauty.local` | `LormaCashier!2024` |
+
+## Production bootstrap (one-off)
+
+For an **empty** production database only. It creates permissions, roles, the
+first two accounts, categories, settings and counters — and no demo data.
+
+```sh
+docker exec \
+  -e ALLOW_PRODUCTION_SEED=true \
+  -e SEED_ADMIN_EMAIL=owner@yourdomain.com \
+  -e SEED_ADMIN_PASSWORD='<at least 12 characters>' \
+  -e SEED_CASHIER_EMAIL=till@yourdomain.com \
+  -e SEED_CASHIER_PASSWORD='<at least 12 characters>' \
+  <backend-container> node dist/database/seed.js
+```
+
+Pass `ALLOW_PRODUCTION_SEED` on the command, never as a stored environment
+variable — it exists so that seeding production is always a deliberate act.
+
+Running this against a database that already has data is safe but pointless:
+every write is an upsert, and **an existing user keeps the password they
+already have.** To change a password, use the app.
 
 The seed is idempotent — rerunning it converges rather than duplicating. It creates 10
 categories, 27 products with batches and expiry dates (including deliberate low-stock,
@@ -357,7 +397,7 @@ Then create the test database once:
 ```bash
 docker exec lorma-postgres psql -U lorma -d postgres -c "CREATE DATABASE lorma_test;"
 export DATABASE_URL="postgresql://lorma:<password>@localhost:5433/lorma_test?schema=public"
-npx prisma migrate deploy && npm run db:seed
+npx prisma migrate deploy && npm run db:seed   # demo data included
 ```
 
 It covers all 16 scenarios required by §46, including the ones that matter most: a sale

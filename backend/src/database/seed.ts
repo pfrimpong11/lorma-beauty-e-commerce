@@ -20,11 +20,33 @@ import {
 
 const prisma = new PrismaClient();
 
-const SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@lormabeauty.local';
-const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'LormaAdmin!2024';
-const SEED_CASHIER_EMAIL = process.env.SEED_CASHIER_EMAIL ?? 'cashier@lormabeauty.local';
-const SEED_CASHIER_PASSWORD = process.env.SEED_CASHIER_PASSWORD ?? 'LormaCashier!2024';
-const BCRYPT_ROUNDS = Number.parseInt(process.env.BCRYPT_ROUNDS ?? '12', 10);
+/**
+ * Demo data is opt-in.
+ *
+ * Everything a real shop needs — permissions, roles, users, categories,
+ * settings, counters and the Walk-in Customer — is created either way.
+ * The invented products and customers are not, because a seed that always
+ * loads them can only be run once safely, and someone will eventually run
+ * it twice.
+ */
+const SEED_DEMO_DATA = process.env.SEED_DEMO_DATA === 'true';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+/**
+ * `??` only falls back when a variable is absent. An empty one satisfies it,
+ * which is how this seed once created accounts with no password at all —
+ * `SEED_ADMIN_PASSWORD=` in an env file is an empty string, not undefined.
+ */
+function envOr(name: string, fallback: string): string {
+  const value = process.env[name];
+  return value === undefined || value.trim() === '' ? fallback : value;
+}
+
+const SEED_ADMIN_EMAIL = envOr('SEED_ADMIN_EMAIL', 'admin@lormabeauty.local');
+const SEED_ADMIN_PASSWORD = envOr('SEED_ADMIN_PASSWORD', 'LormaAdmin!2024');
+const SEED_CASHIER_EMAIL = envOr('SEED_CASHIER_EMAIL', 'cashier@lormabeauty.local');
+const SEED_CASHIER_PASSWORD = envOr('SEED_CASHIER_PASSWORD', 'LormaCashier!2024');
+const BCRYPT_ROUNDS = Number.parseInt(envOr('BCRYPT_ROUNDS', '12'), 10);
 
 const CATEGORIES = [
   ['Face Care', 'Everyday facial care essentials'],
@@ -211,6 +233,10 @@ async function seedCatalogue(adminId: string) {
     categoryIds.set(name, category.id);
   }
 
+  // Invented stock. A real shop's catalogue arrives through Products and
+  // Receive stock, with real barcodes, batches and costs behind it.
+  if (!SEED_DEMO_DATA) return categoryIds.size;
+
   for (const p of PRODUCTS) {
     const categoryId = categoryIds.get(p.category);
     if (!categoryId) throw new Error(`Unknown category "${p.category}" for ${p.sku}`);
@@ -308,16 +334,19 @@ async function seedCustomersAndCounters() {
     });
   }
 
-  for (const [name, phone] of [
-    ['Akosua Boateng', '+233244000101'],
-    ['Nana Adjei', '+233244000102'],
-    ['Efua Danso', '+233244000103'],
-  ] as const) {
-    await prisma.customer.upsert({
-      where: { phone },
-      update: {},
-      create: { name, phone },
-    });
+  // Invented people. Real customers are captured at the till.
+  if (SEED_DEMO_DATA) {
+    for (const [name, phone] of [
+      ['Akosua Boateng', '+233244000101'],
+      ['Nana Adjei', '+233244000102'],
+      ['Efua Danso', '+233244000103'],
+    ] as const) {
+      await prisma.customer.upsert({
+        where: { phone },
+        update: {},
+        create: { name, phone },
+      });
+    }
   }
 
   for (const name of ['receipt', 'return', 'shift', 'stockcount']) {
@@ -335,8 +364,76 @@ async function seedSettings() {
   }
 }
 
+/**
+ * Refuse anything that could damage a live shop before touching the
+ * database.
+ *
+ * This exists because the seed was once run by hand against production. It
+ * loaded demo stock into a real catalogue and created accounts with empty
+ * passwords, because the env vars were present but blank. Every check below
+ * is one of the ways that went wrong.
+ */
+function assertSafeToRun(): void {
+  if (IS_PRODUCTION && SEED_DEMO_DATA) {
+    throw new Error(
+      'Refusing to load demo data into production. Unset SEED_DEMO_DATA, or run this against staging.',
+    );
+  }
+
+  if (IS_PRODUCTION && process.env.ALLOW_PRODUCTION_SEED !== 'true') {
+    throw new Error(
+      'Refusing to seed production.\n\n' +
+        'This is a one-off bootstrap for an EMPTY database — it creates permissions,\n' +
+        'roles, the first two users, categories, settings and counters. It never\n' +
+        'changes an existing user\'s password.\n\n' +
+        'If that is genuinely what you want:\n' +
+        '  docker exec -e ALLOW_PRODUCTION_SEED=true \\\n' +
+        '    -e SEED_ADMIN_EMAIL=... -e SEED_ADMIN_PASSWORD=... \\\n' +
+        '    -e SEED_CASHIER_EMAIL=... -e SEED_CASHIER_PASSWORD=... \\\n' +
+        '    <backend-container> node dist/database/seed.js',
+    );
+  }
+
+  // Outside demo mode the built-in credentials must never be reachable:
+  // they are published in the README and in this file.
+  if (!SEED_DEMO_DATA) {
+    const required = [
+      ['SEED_ADMIN_EMAIL', process.env.SEED_ADMIN_EMAIL],
+      ['SEED_ADMIN_PASSWORD', process.env.SEED_ADMIN_PASSWORD],
+      ['SEED_CASHIER_EMAIL', process.env.SEED_CASHIER_EMAIL],
+      ['SEED_CASHIER_PASSWORD', process.env.SEED_CASHIER_PASSWORD],
+    ] as const;
+
+    const missing = required
+      .filter(([, value]) => value === undefined || value.trim() === '')
+      .map(([name]) => name);
+
+    if (missing.length > 0) {
+      throw new Error(
+        `Set these before seeding without demo data: ${missing.join(', ')}.\n` +
+          'They have no safe default — the built-in ones are published in the README.',
+      );
+    }
+
+    const short = [
+      ['SEED_ADMIN_PASSWORD', SEED_ADMIN_PASSWORD],
+      ['SEED_CASHIER_PASSWORD', SEED_CASHIER_PASSWORD],
+    ].filter(([, value]) => value.length < 12);
+
+    if (short.length > 0) {
+      throw new Error(
+        `Too short (at least 12 characters): ${short.map(([n]) => n).join(', ')}.`,
+      );
+    }
+  }
+}
+
 async function main() {
-  console.log('Seeding Lorma Beauty POS...\n');
+  assertSafeToRun();
+
+  console.log(
+    `Seeding Lorma Beauty POS${SEED_DEMO_DATA ? ' with demo data' : ' (demo data skipped)'}...\n`,
+  );
 
   const { adminRole, cashierRole } = await seedPermissionsAndRoles();
   console.log(`  roles/permissions  ${ALL_PERMISSIONS.length} permissions, 2 roles`);
@@ -345,17 +442,35 @@ async function main() {
   console.log(`  users              ${admin.email}, ${cashier.email}`);
 
   const categoryCount = await seedCatalogue(admin.id);
-  console.log(`  catalogue          ${categoryCount} categories, ${PRODUCTS.length} products`);
+  // Report what was created, not what the file contains: a summary claiming
+  // 28 products against an empty catalogue is how nobody noticed sooner.
+  console.log(
+    `  catalogue          ${categoryCount} categories, ` +
+      `${SEED_DEMO_DATA ? PRODUCTS.length : 0} products${SEED_DEMO_DATA ? '' : ' (demo data skipped)'}`,
+  );
 
   await seedCustomersAndCounters();
-  console.log('  customers          Walk-in Customer + 3 demo customers');
+  console.log(
+    `  customers          Walk-in Customer${SEED_DEMO_DATA ? ' + 3 demo customers' : ' only'}`,
+  );
+  console.log('  counters           receipt, return, shift, stockcount');
 
   await seedSettings();
   console.log(`  settings           ${SETTINGS.length} keys`);
 
-  console.log('\nDevelopment credentials (NEVER use these in production):');
-  console.log(`  ADMIN    ${SEED_ADMIN_EMAIL} / ${SEED_ADMIN_PASSWORD}`);
-  console.log(`  CASHIER  ${SEED_CASHIER_EMAIL} / ${SEED_CASHIER_PASSWORD}`);
+  if (SEED_DEMO_DATA) {
+    console.log('\nDevelopment credentials (NEVER use these in production):');
+    console.log(`  ADMIN    ${SEED_ADMIN_EMAIL} / ${SEED_ADMIN_PASSWORD}`);
+    console.log(`  CASHIER  ${SEED_CASHIER_EMAIL} / ${SEED_CASHIER_PASSWORD}`);
+  } else {
+    // The passwords came from the environment; whoever set them has them.
+    // Printing them here would put them in deploy logs and shell history.
+    console.log('\nAccounts created (passwords were supplied by you, and are not printed):');
+    console.log(`  ADMIN    ${SEED_ADMIN_EMAIL}`);
+    console.log(`  CASHIER  ${SEED_CASHIER_EMAIL}`);
+    console.log('\nAn existing user keeps the password they already had.');
+  }
+
   console.log('\nSeed complete.');
 }
 

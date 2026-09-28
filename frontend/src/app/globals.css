@@ -1,0 +1,220 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Lorma Beauty — warm rose on soft neutral */
+    --brand-50: 253 242 247;
+    --brand-100: 252 228 239;
+    --brand-200: 250 202 224;
+    --brand-300: 245 160 199;
+    --brand-400: 236 110 166;
+    --brand-500: 217 70 135;
+    --brand-600: 194 45 111;
+    --brand-700: 155 44 94;
+    --brand-800: 128 39 79;
+    --brand-900: 108 36 68;
+
+    --surface: 255 255 255;
+    --surface-raised: 255 255 255;
+    --surface-sunken: 250 247 249;
+
+    --ink: 32 27 30;
+    --ink-muted: 90 82 87;
+    --ink-subtle: 138 129 135;
+    --line: 233 226 230;
+
+    --success: 22 133 88;
+    --warning: 181 108 12;
+    --danger: 194 47 47;
+    --info: 46 96 173;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --surface: 24 20 22;
+      --surface-raised: 33 28 31;
+      --surface-sunken: 18 15 17;
+      --ink: 245 241 243;
+      --ink-muted: 183 174 179;
+      --ink-subtle: 138 129 135;
+      --line: 55 48 52;
+      --success: 61 181 130;
+      --warning: 226 160 60;
+      --danger: 235 107 107;
+      --info: 113 160 232;
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --surface: 24 20 22;
+    --surface-raised: 33 28 31;
+    --surface-sunken: 18 15 17;
+    --ink: 245 241 243;
+    --ink-muted: 183 174 179;
+    --ink-subtle: 138 129 135;
+    --line: 55 48 52;
+    --success: 61 181 130;
+    --warning: 226 160 60;
+    --danger: 235 107 107;
+    --info: 113 160 232;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface-sunken text-ink antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04';
+  }
+
+  /* Visible focus for keyboard users — the POS is driven by keyboard. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-surface;
+  }
+
+  /* §4 — animations must never fight the user's stated preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Numeric columns line up when digits share a width */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Full height below the app header.
+   *
+   * `dvh` tracks the visible viewport as a mobile browser's URL bar shows
+   * and hides; `vh` does not, which is why a 100vh layout ends up taller
+   * than the screen on iOS and Android and pushes the checkout button out
+   * of reach. The `vh` line is the fallback for anything without dvh.
+   */
+  .h-app {
+    height: calc(100vh - 3.5rem);
+    height: calc(100dvh - 3.5rem);
+  }
+
+  .max-h-sheet {
+    max-height: 82vh;
+    max-height: 82dvh;
+  }
+
+  /*
+   * Minimum comfortable size for a finger. Applied only for coarse
+   * pointers so mouse-driven layouts stay compact.
+   */
+  @media (pointer: coarse) {
+    .tap {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+}
+
+@layer components {
+  /* The printed copy of the receipt — hidden on screen, revealed by the
+     print rules below. */
+  .receipt-print-host {
+    display: none;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-line/60;
+  }
+  .skeleton::after {
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-surface/60 to-transparent;
+    content: '';
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  /*
+   * Receipt printing (§16).
+   *
+   * The printed copy lives in .receipt-print-host, a direct child of
+   * <body> (see ReceiptPrintHost). Hiding by `display` rather than
+   * `visibility` matters: `visibility: hidden` leaves the hidden boxes
+   * occupying space, which is how the slip ended up with a blank third
+   * at the top.
+   *
+   * Page width and margins are written at print time from the saved
+   * printer settings; what follows are the 80mm defaults.
+   */
+  body > *:not(.receipt-print-host) {
+    display: none !important;
+  }
+
+  .receipt-print-host {
+    display: block !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  .receipt-print {
+    /* Static, so no ancestor can offset it down the page. */
+    position: static;
+    /*
+     * The PRINTABLE width, not the paper width. An 80mm roll prints 576
+     * dots at 203dpi, which is 72mm — sizing to the full 80mm is what
+     * chopped the right-hand characters off every line.
+     */
+    width: 72mm;
+    max-width: 72mm;
+    margin: 0 auto;
+    /*
+     * No internal padding on paper. The 72mm is already inside the
+     * printer's own margin, so the screen preview's padding would just
+     * narrow the text to ~63mm and force needless wrapping.
+     */
+    padding: 0;
+  }
+
+  /*
+   * Thermal paper is one colour. Forcing black on white avoids the driver
+   * dithering a grey into a smear, and stops brand colours printing as
+   * unreadable mid-grey blocks.
+   */
+  .receipt-print,
+  .receipt-print * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /*
+   * Default page geometry for an 80mm roll.
+   *
+   * `auto` height matters: a roll has no page length, so a fixed height
+   * either pads the slip with blank paper or clips it. Zero margin
+   * because the receipt centres itself inside the printable width —
+   * applying a page margin as well would narrow it twice.
+   *
+   * print.ts overrides this at print time from the saved settings; this
+   * is the fallback if a print happens before they load.
+   */
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+}

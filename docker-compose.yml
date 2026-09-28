@@ -1,0 +1,138 @@
+# ==========================================================================
+# Lorma Beauty POS — production / containerised stack
+#
+#   docker compose build
+#   docker compose up -d
+#   docker compose logs -f
+#   docker compose down          (add -v to also drop the database volume)
+#
+# Every value comes from .env — copy .env.example and fill it in first.
+# ==========================================================================
+
+name: lorma-beauty-pos
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lorma-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Deterministic collation so ORDER BY on product names is stable
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      # SMS. Optional: with no provider configured the shop still trades and
+      # every receipt message is recorded as queued, ready to send later.
+      SMS_PROVIDER: ${SMS_PROVIDER:-}
+      ARKESEL_API_KEY: ${ARKESEL_API_KEY:-}
+      SMS_SENDER_ID: ${SMS_SENDER_ID:-LormaBeauty}
+      TZ: ${TZ:-Africa/Accra}
+    volumes:
+      # Named volume — container restarts and rebuilds never destroy data.
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - lorma-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    # Not published by default: the database is reachable only on the
+    # internal network. Uncomment for direct psql/GUI access in dev.
+    # ports:
+    #   - "${POSTGRES_PORT:-5432}:5432"
+
+  # One-shot migration runner. The API waits for this to finish, so
+  # migrations never race against a starting (or replicated) app.
+  migrate:
+    build:
+      context: ./backend
+      target: runtime
+    container_name: lorma-migrate
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    command: ["npx", "prisma", "migrate", "deploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lorma-net
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    container_name: lorma-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      BACKEND_PORT: 4000
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      RATE_LIMIT_TTL: ${RATE_LIMIT_TTL:-60}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CURRENCY: ${CURRENCY:-GHS}
+      TZ: ${TZ:-Africa/Accra}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - lorma-net
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    container_name: lorma-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Read at request time and injected into the page — see
+      # frontend/src/lib/runtime-config.ts. Changing this needs a restart,
+      # not a rebuild.
+      API_URL: ${NEXT_PUBLIC_API_URL}
+      # Serve the API from this same origin: the browser calls /api here and
+      # Next forwards it to the backend across the compose network. Required
+      # for any client that is not this machine — a POS terminal on the LAN,
+      # a phone, a tunnel — because an absolute localhost URL would resolve
+      # to the client device instead. Set it to empty to turn the proxy off
+      # and have browsers call API_URL directly.
+      API_PROXY_TARGET: ${API_PROXY_TARGET-http://backend:4000}
+      APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Lorma Beauty POS}
+      CURRENCY: ${NEXT_PUBLIC_CURRENCY:-GHS}
+      CURRENCY_LOCALE: ${NEXT_PUBLIC_CURRENCY_LOCALE:-en-GH}
+      EXPIRY_WARNING_DAYS: ${NEXT_PUBLIC_EXPIRY_WARNING_DAYS:-30}
+      TZ: ${TZ:-Africa/Accra}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - lorma-net
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+networks:
+  lorma-net:
+    name: lorma-net
+    driver: bridge
+
+volumes:
+  postgres-data:
+    name: lorma-postgres-data

@@ -1,0 +1,790 @@
+// ==========================================================================
+// Lorma Beauty POS — data model
+//
+// Conventions:
+//   - Money is Decimal(12,2). Never Float. See docs/adr/0002-money.md
+//   - Catalogue rows are soft-deleted (deactivated), never hard-deleted,
+//     because they carry sales history.
+//   - Sales are immutable once COMPLETED. Corrections go through Returns.
+// ==========================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  // pg_trgm backs fuzzy product search on the POS (§42)
+  extensions = [pg_trgm]
+}
+
+// --------------------------------------------------------------------------
+// Access control
+// --------------------------------------------------------------------------
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String           @unique @db.VarChar(64)
+  description String?          @db.VarChar(255)
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  // Dotted resource.action form, e.g. "product.update_price"
+  code        String           @unique @db.VarChar(96)
+  description String?          @db.VarChar(255)
+  createdAt   DateTime         @default(now())
+
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  grantedAt    DateTime   @default(now())
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id                String    @id @default(uuid()) @db.Uuid
+  email             String    @unique @db.VarChar(255)
+  passwordHash      String    @db.VarChar(255)
+  firstName         String    @db.VarChar(80)
+  lastName          String    @db.VarChar(80)
+  phone             String?   @db.VarChar(32)
+  roleId            String    @db.Uuid
+  isActive          Boolean   @default(true)
+  mustChangePassword Boolean  @default(false)
+  lastLoginAt       DateTime?
+  // Bumped on password reset / forced logout to invalidate refresh tokens
+  tokenVersion      Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deactivatedAt     DateTime?
+
+  role              Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  sales             Sale[]              @relation("SaleCashier")
+  shifts            Shift[]
+  inventoryMoves    InventoryMovement[]
+  returnsProcessed  Return[]            @relation("ReturnProcessedBy")
+  auditLogs         AuditLog[]
+  syncEntries       SyncQueueEntry[]
+  stockCountsStarted   StockCount[]     @relation("StockCountStartedBy")
+  stockCountsApproved  StockCount[]     @relation("StockCountCompletedBy")
+
+  @@index([roleId])
+  @@index([isActive])
+  @@map("users")
+}
+
+// --------------------------------------------------------------------------
+// Catalogue
+// --------------------------------------------------------------------------
+
+model Category {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique @db.VarChar(120)
+  slug        String    @unique @db.VarChar(140)
+  description String?   @db.VarChar(500)
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+
+  @@index([isActive])
+  @@map("categories")
+}
+
+enum ProductUnit {
+  PIECE
+  BOTTLE
+  TUBE
+  JAR
+  SACHET
+  PACK
+  SET
+  ML
+  GRAM
+}
+
+enum BarcodeMode {
+  /// One barcode printed on every unit — the normal retail case.
+  SHARED
+  /// Each physical unit carries its own barcode, so a given code is one
+  /// item and must not be counted or received twice.
+  SERIALIZED
+}
+
+model Product {
+  id              String      @id @default(uuid()) @db.Uuid
+  name            String      @db.VarChar(200)
+  sku             String      @unique @db.VarChar(64)
+  description     String?     @db.Text
+  categoryId      String      @db.Uuid
+  brand           String?     @db.VarChar(120)
+  costPrice       Decimal     @db.Decimal(12, 2)
+  sellingPrice    Decimal     @db.Decimal(12, 2)
+  minStockLevel   Int         @default(0)
+  unit            ProductUnit @default(PIECE)
+  imageUrl        String?     @db.VarChar(500)
+  // When true, stock is held in batches and sales deduct FEFO
+  tracksExpiry    Boolean     @default(false)
+  // How this product's barcodes behave — see BarcodeMode.
+  barcodeMode     BarcodeMode @default(SHARED)
+
+  /// Sizes of one article — Small/Medium/Large, or 200ml/400ml — are
+  /// separate products sharing a group. Each carries its own price, stock,
+  /// barcodes, batches and count lines, because that is what a size is: a
+  /// distinct thing on the shelf that happens to be sold under one name.
+  /// Null means the product has no sizes, which is most of them.
+  variantGroupId  String?     @db.Uuid
+  /// The label shown on the size button. Free text, because a skincare
+  /// range mixes "Large" with "250g" and neither is wrong.
+  variantName     String?     @db.VarChar(40)
+  /// Display order within the group; sizes read smallest-first, not
+  /// alphabetically, where "Extra Large" would land before "Small".
+  variantSort     Int         @default(0)
+
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deactivatedAt   DateTime?
+
+  category        Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  inventory       Inventory?
+  batches         ProductBatch[]
+  barcodes        ProductBarcode[]
+  saleItems       SaleItem[]
+  movements       InventoryMovement[]
+  returnItems     ReturnItem[]
+  countItems      StockCountItem[]
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([variantGroupId])
+  /// One label per size within a group: two "Large" rows would be
+  /// indistinguishable on the till.
+  @@unique([variantGroupId, variantName], map: "products_one_label_per_group")
+  // Trigram index, not a btree: the POS searches by substring
+  // ("vit c" -> "Vitamin C Serum"), which a btree cannot serve.
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "products_name_trgm")
+  @@map("products")
+}
+
+/// A barcode that identifies a product.
+///
+/// A product may carry many: a supplier can change the printed code
+/// between production runs, the same item can arrive in a multipack with
+/// its own code, and serialized goods carry a distinct code per unit.
+///
+/// Price lives on the product, never here — the barcode only answers
+/// "which product is this?", so a price change is one edit rather than
+/// one per barcode.
+model ProductBarcode {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @db.Uuid
+  /// Globally unique: a code can only ever mean one product.
+  barcode   String   @unique @db.VarChar(64)
+  /// The code shown on the product record and printed on labels.
+  isPrimary Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  note      String?  @db.VarChar(200)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  scans     StockCountScan[]
+
+  @@index([productId])
+  @@index([isActive])
+  @@map("product_barcodes")
+}
+
+// One authoritative stock row per product. `version` gives us optimistic
+// concurrency so an offline sync can detect that stock moved underneath it.
+model Inventory {
+  productId     String   @id @db.Uuid
+  quantity      Int      @default(0)
+  // Reserved by held/suspended transactions; not yet sold
+  reserved      Int      @default(0)
+  version       Int      @default(0)
+  lastCountedAt DateTime?
+  updatedAt     DateTime @updatedAt
+
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("inventory")
+}
+
+model ProductBatch {
+  id          String    @id @default(uuid()) @db.Uuid
+  productId   String    @db.Uuid
+  batchNumber String    @db.VarChar(64)
+  expiryDate  DateTime  @db.Date
+  quantity    Int       @default(0)
+  costPrice   Decimal?  @db.Decimal(12, 2)
+  receivedAt  DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  product     Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  movements   InventoryMovement[]
+  saleItems   SaleItem[]
+
+  @@unique([productId, batchNumber])
+  @@index([expiryDate])
+  @@index([productId, expiryDate])
+  @@map("product_batches")
+}
+
+enum MovementType {
+  STOCK_IN
+  SALE
+  RETURN
+  ADJUSTMENT
+  DAMAGED
+  EXPIRED
+  TRANSFER
+  OPENING_BALANCE
+  /// Adjustment arising from an approved physical stock count. Kept
+  /// distinct from ADJUSTMENT so a count's effect is traceable.
+  STOCK_COUNT
+}
+
+// Append-only ledger. Every stock change lands here with a reason and an
+// actor — there are no silent inventory changes.
+model InventoryMovement {
+  id             String       @id @default(uuid()) @db.Uuid
+  productId      String       @db.Uuid
+  batchId        String?      @db.Uuid
+  type           MovementType
+  // Signed: negative for stock leaving
+  quantity       Int
+  previousQty    Int
+  newQty         Int
+  reason         String       @db.VarChar(500)
+  unitCost       Decimal?     @db.Decimal(12, 2)
+  referenceType  String?      @db.VarChar(40)
+  referenceId    String?      @db.Uuid
+  userId         String       @db.Uuid
+  createdAt      DateTime     @default(now())
+
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  batch          ProductBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([productId, createdAt])
+  @@index([type])
+  @@index([referenceType, referenceId])
+  @@map("inventory_movements")
+}
+
+// --------------------------------------------------------------------------
+// Stock counts
+// --------------------------------------------------------------------------
+
+enum StockCountStatus {
+  /// Being counted, or saved as a draft to resume later.
+  IN_PROGRESS
+  /// Approved: inventory has been adjusted to the counted figures and
+  /// the document is frozen.
+  APPROVED
+  CANCELLED
+}
+
+/// A physical stock take.
+///
+/// Counting never touches inventory. The counted figures sit here until
+/// an authorised user approves them, and only then is stock adjusted —
+/// so a half-finished count, or one with an obvious mistake in it, can
+/// never silently rewrite the shop's stock levels.
+model StockCount {
+  id            String           @id @default(uuid()) @db.Uuid
+  countNumber   String           @unique @db.VarChar(32)
+  status        StockCountStatus @default(IN_PROGRESS)
+  note          String?          @db.VarChar(500)
+
+  startedById   String           @db.Uuid
+  startedAt     DateTime         @default(now())
+  completedById String?          @db.Uuid
+  completedAt   DateTime?
+
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  startedBy     User             @relation("StockCountStartedBy", fields: [startedById], references: [id], onDelete: Restrict)
+  completedBy   User?            @relation("StockCountCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+
+  items         StockCountItem[]
+  scans         StockCountScan[]
+
+  @@index([status])
+  @@index([startedAt])
+  @@map("stock_counts")
+}
+
+model StockCountItem {
+  id              String     @id @default(uuid()) @db.Uuid
+  stockCountId    String     @db.Uuid
+  productId       String     @db.Uuid
+  /// Stock on record when this product was first counted. Captured then,
+  /// not at approval, so the variance reflects what the counter saw.
+  systemQuantity  Int
+  countedQuantity Int        @default(0)
+  /// counted - system. Stored so historical counts keep their figures
+  /// even after stock moves on.
+  variance        Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  stockCount      StockCount @relation(fields: [stockCountId], references: [id], onDelete: Cascade)
+  product         Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([stockCountId, productId])
+  @@index([stockCountId])
+  @@map("stock_count_items")
+}
+
+/// One scan of a serialized barcode during a count.
+///
+/// Only written for SERIALIZED products: the unique constraint is what
+/// stops the same physical unit being counted twice, and it has to
+/// survive saving the count as a draft and resuming it later.
+model StockCountScan {
+  id           String         @id @default(uuid()) @db.Uuid
+  stockCountId String         @db.Uuid
+  /// Nullable on purpose: retiring a barcode must not erase the record of
+  /// it having been scanned. The code itself is kept below.
+  barcodeId    String?        @db.Uuid
+  barcode      String         @db.VarChar(64)
+  scannedAt    DateTime       @default(now())
+
+  stockCount   StockCount     @relation(fields: [stockCountId], references: [id], onDelete: Cascade)
+  productBarcode ProductBarcode? @relation(fields: [barcodeId], references: [id], onDelete: SetNull)
+
+  @@unique([stockCountId, barcode])
+  @@index([stockCountId])
+  @@map("stock_count_scans")
+}
+
+// --------------------------------------------------------------------------
+// Customers
+// --------------------------------------------------------------------------
+
+model Customer {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(160)
+  phone       String?   @unique @db.VarChar(32)
+  email       String?   @db.VarChar(255)
+  address     String?   @db.VarChar(500)
+  notes       String?   @db.Text
+  // The single non-deletable "Walk-in Customer" row
+  isWalkIn    Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sales       Sale[]
+
+  @@index([name])
+  @@index([isActive])
+  @@map("customers")
+}
+
+// --------------------------------------------------------------------------
+// Sales
+// --------------------------------------------------------------------------
+
+enum SaleStatus {
+  COMPLETED
+  HELD
+  VOIDED
+  PARTIALLY_RETURNED
+  RETURNED
+}
+
+enum SaleOrigin {
+  ONLINE
+  OFFLINE_SYNCED
+}
+
+enum DiscountType {
+  NONE
+  AMOUNT
+  PERCENT
+}
+
+model Sale {
+  id             String       @id @default(uuid()) @db.Uuid
+  receiptNumber  String       @unique @db.VarChar(32)
+  customerId     String?      @db.Uuid
+  cashierId      String       @db.Uuid
+  shiftId        String?      @db.Uuid
+  status         SaleStatus   @default(COMPLETED)
+  origin         SaleOrigin   @default(ONLINE)
+
+  subtotal       Decimal      @db.Decimal(12, 2)
+  discountType   DiscountType @default(NONE)
+  discountValue  Decimal      @default(0) @db.Decimal(12, 2)
+  discountAmount Decimal      @default(0) @db.Decimal(12, 2)
+  taxAmount      Decimal      @default(0) @db.Decimal(12, 2)
+  total          Decimal      @db.Decimal(12, 2)
+  amountRefunded Decimal      @default(0) @db.Decimal(12, 2)
+
+  note           String?      @db.VarChar(500)
+
+  // Offline provenance — set when the sale originated on a device
+  clientUuid     String?      @unique @db.Uuid
+  deviceId       String?      @db.VarChar(64)
+  clientSequence Int?
+  soldAt         DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  cashier        User         @relation("SaleCashier", fields: [cashierId], references: [id], onDelete: Restrict)
+  shift          Shift?       @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+
+  items          SaleItem[]
+  payments       Payment[]
+  returns        Return[]
+
+  @@index([soldAt])
+  @@index([cashierId, soldAt])
+  @@index([shiftId])
+  @@index([status])
+  @@index([customerId])
+  @@map("sales")
+  smsMessages    SmsMessage[]
+}
+
+model SaleItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  saleId         String   @db.Uuid
+  productId      String   @db.Uuid
+  batchId        String?  @db.Uuid
+  // Denormalised so a receipt reprints exactly as it was sold
+  productName    String   @db.VarChar(200)
+  sku            String   @db.VarChar(64)
+  quantity       Int
+  unitPrice      Decimal  @db.Decimal(12, 2)
+  unitCost       Decimal  @db.Decimal(12, 2)
+  discountAmount Decimal  @default(0) @db.Decimal(12, 2)
+  lineTotal      Decimal  @db.Decimal(12, 2)
+  quantityReturned Int    @default(0)
+  createdAt      DateTime @default(now())
+
+  sale           Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  batch          ProductBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  returnItems    ReturnItem[]
+
+  @@index([saleId])
+  @@index([productId])
+  @@map("sale_items")
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY
+  CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+enum PaymentStatus {
+  PAID
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model Payment {
+  id            String        @id @default(uuid()) @db.Uuid
+  saleId        String        @db.Uuid
+  method        PaymentMethod
+  status        PaymentStatus @default(PAID)
+  amount        Decimal       @db.Decimal(12, 2)
+  // Cash handling — tendered/change are null for non-cash methods
+  amountTendered Decimal?     @db.Decimal(12, 2)
+  changeGiven   Decimal?      @db.Decimal(12, 2)
+  reference     String?       @db.VarChar(120)
+  createdAt     DateTime      @default(now())
+
+  sale          Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+  @@index([method])
+  @@map("payments")
+}
+
+// --------------------------------------------------------------------------
+// Returns
+// --------------------------------------------------------------------------
+
+enum ReturnReason {
+  DAMAGED
+  EXPIRED
+  WRONG_ITEM
+  CUSTOMER_CHANGED_MIND
+  ALLERGIC_REACTION
+  OTHER
+}
+
+enum RefundMethod {
+  CASH
+  MOBILE_MONEY
+  CARD
+  BANK_TRANSFER
+  STORE_CREDIT
+  OTHER
+}
+
+model Return {
+  id            String       @id @default(uuid()) @db.Uuid
+  returnNumber  String       @unique @db.VarChar(32)
+  saleId        String       @db.Uuid
+  processedById String       @db.Uuid
+  shiftId       String?      @db.Uuid
+  reason        ReturnReason
+  reasonNote    String?      @db.VarChar(500)
+  refundMethod  RefundMethod
+  refundAmount  Decimal      @db.Decimal(12, 2)
+  // False when goods are unsellable (expired/damaged) and go to write-off
+  restocked     Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+
+  sale          Sale         @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  processedBy   User         @relation("ReturnProcessedBy", fields: [processedById], references: [id], onDelete: Restrict)
+  shift         Shift?       @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  items         ReturnItem[]
+
+  @@index([saleId])
+  @@index([createdAt])
+  @@map("returns")
+}
+
+model ReturnItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  returnId     String   @db.Uuid
+  saleItemId   String   @db.Uuid
+  productId    String   @db.Uuid
+  quantity     Int
+  unitPrice    Decimal  @db.Decimal(12, 2)
+  refundAmount Decimal  @db.Decimal(12, 2)
+  restocked    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  return       Return   @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  saleItem     SaleItem @relation(fields: [saleItemId], references: [id], onDelete: Restrict)
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([returnId])
+  @@map("return_items")
+}
+
+// --------------------------------------------------------------------------
+// Shifts
+// --------------------------------------------------------------------------
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+model Shift {
+  id             String      @id @default(uuid()) @db.Uuid
+  shiftNumber    String      @unique @db.VarChar(32)
+  cashierId      String      @db.Uuid
+  status         ShiftStatus @default(OPEN)
+
+  openingCash    Decimal     @db.Decimal(12, 2)
+  openedAt       DateTime    @default(now())
+
+  closingCash    Decimal?    @db.Decimal(12, 2)
+  expectedCash   Decimal?    @db.Decimal(12, 2)
+  variance       Decimal?    @db.Decimal(12, 2)
+  varianceReason String?     @db.VarChar(500)
+  closedAt       DateTime?
+
+  notes          String?     @db.Text
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  cashier        User               @relation(fields: [cashierId], references: [id], onDelete: Restrict)
+  sales          Sale[]
+  returns        Return[]
+  transactions   ShiftTransaction[]
+
+  @@index([cashierId, status])
+  @@index([openedAt])
+  @@map("shifts")
+}
+
+enum ShiftTransactionType {
+  SALE
+  REFUND
+  CASH_IN
+  CASH_OUT
+}
+
+// Cash-drawer ledger for a shift, so expected cash is derived from
+// recorded movements rather than recomputed from scratch at close.
+model ShiftTransaction {
+  id          String               @id @default(uuid()) @db.Uuid
+  shiftId     String               @db.Uuid
+  type        ShiftTransactionType
+  method      PaymentMethod
+  amount      Decimal              @db.Decimal(12, 2)
+  referenceId String?              @db.Uuid
+  note        String?              @db.VarChar(500)
+  createdAt   DateTime             @default(now())
+
+  shift       Shift                @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@index([shiftId, type])
+  @@map("shift_transactions")
+}
+
+// --------------------------------------------------------------------------
+// Audit
+// --------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @db.Uuid
+  action     String   @db.VarChar(80)
+  entityType String   @db.VarChar(60)
+  entityId   String?  @db.VarChar(64)
+  // Human-readable line shown in the activity feed
+  summary    String   @db.VarChar(500)
+  metadata   Json?
+  ipAddress  String?  @db.VarChar(64)
+  userAgent  String?  @db.VarChar(300)
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// --------------------------------------------------------------------------
+// Offline synchronisation
+// --------------------------------------------------------------------------
+
+enum SyncStatus {
+  ACCEPTED
+  DUPLICATE
+  CONFLICT
+  REJECTED
+}
+
+// Server-side idempotency ledger. Every offline transaction submitted is
+// recorded here keyed by its idempotency key, so a retry returns the
+// original outcome instead of creating a second sale.
+model SyncQueueEntry {
+  id             String     @id @default(uuid()) @db.Uuid
+  idempotencyKey String     @unique @db.VarChar(120)
+  clientUuid     String     @db.Uuid
+  deviceId       String     @db.VarChar(64)
+  userId         String     @db.Uuid
+  entityType     String     @db.VarChar(40)
+  clientSequence Int?
+  status         SyncStatus
+  // The resulting sale/return id when ACCEPTED
+  resultId       String?    @db.Uuid
+  payload        Json
+  conflicts      Json?
+  errorMessage   String?    @db.VarChar(500)
+  resolvedById   String?    @db.Uuid
+  resolvedAt     DateTime?
+  clientTime     DateTime
+  receivedAt     DateTime   @default(now())
+
+  user           User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([deviceId, receivedAt])
+  @@index([status])
+  @@index([clientUuid])
+  @@map("sync_queue")
+}
+
+// --------------------------------------------------------------------------
+// Settings
+// --------------------------------------------------------------------------
+
+model Setting {
+  key         String   @id @db.VarChar(80)
+  value       Json
+  description String?  @db.VarChar(255)
+  updatedAt   DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// Monotonic counters for human-facing document numbers
+// (LMB-000001, RET-000001, SH-000001). Incremented inside the same
+// transaction as the document it numbers.
+model Counter {
+  name      String   @id @db.VarChar(40)
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@map("counters")
+}
+
+enum SmsStatus {
+  /// Recorded but not handed to a provider — no provider is configured.
+  QUEUED
+  SENT
+  FAILED
+}
+
+/// Every message the shop tried to send.
+///
+/// Recorded whether or not a provider is configured, and whether or not it
+/// succeeded. A receipt SMS that silently failed is worse than one that was
+/// never attempted: the cashier believes the customer has been told.
+model SmsMessage {
+  id         String    @id @default(uuid()) @db.Uuid
+  toPhone    String    @db.VarChar(32)
+  body       String    @db.Text
+  status     SmsStatus @default(QUEUED)
+  provider   String?   @db.VarChar(40)
+  /// The provider's own id, for chasing a message up with them later.
+  providerRef String?  @db.VarChar(120)
+  error      String?   @db.Text
+  attempts   Int       @default(0)
+  /// The sale this was sent about, when there is one.
+  saleId     String?   @db.Uuid
+  createdAt  DateTime  @default(now())
+  sentAt     DateTime?
+
+  sale       Sale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([saleId])
+  @@map("sms_messages")
+}

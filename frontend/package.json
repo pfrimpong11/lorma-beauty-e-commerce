@@ -1,0 +1,45 @@
+{
+  "name": "lorma-beauty-pos-frontend",
+  "version": "1.0.0",
+  "description": "Lorma Beauty POS \u2014 Next.js PWA",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "check:sections": "node scripts/check-sections.mjs",
+    "check:modal-focus": "node scripts/check-modal-focus.mjs",
+    "check": "npm run check:sections && npm run check:modal-focus && npm run check:scanner && npm run check:scan-to-cart && npm run check:responsive && npm run check:proxy && npm run check:held-sales && npm run check:sw",
+    "check:scanner": "node scripts/check-scanner.mjs",
+    "check:scan-to-cart": "node scripts/check-scan-to-cart.mjs",
+    "check:responsive": "node scripts/check-responsive.mjs",
+    "check:proxy": "node scripts/check-proxy.mjs",
+    "check:held-sales": "node scripts/check-held-sales.mjs",
+    "check:sw": "node scripts/check-sw.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.64.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.18.0",
+    "idb": "^8.0.1",
+    "next": "^15.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^2.6.0",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "autoprefixer": "^10.4.20",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^30.1.0",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3"
+  }
+}

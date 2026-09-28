@@ -1,0 +1,77 @@
+# ==========================================================================
+# Lorma Beauty POS — local development overlay
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Differences from production:
+#   - source is bind-mounted and both apps run in watch mode
+#   - Postgres is published on the host, so psql, a GUI and the host-side
+#     test suite can reach it (production keeps it on the internal network)
+#   - images stop at the `deps` stage; no production build is made
+#
+# node_modules lives in a container-managed volume rather than coming from
+# the bind mount, because Prisma's query engine is platform-specific and a
+# macOS host build will not run on Alpine. Each service installs into that
+# volume on first start if it is empty, so the stack is self-healing after
+# a dependency change or `--renew-anon-volumes`.
+# ==========================================================================
+
+services:
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  migrate:
+    build:
+      target: deps
+    command:
+      - sh
+      - -c
+      - '[ -d node_modules/.prisma ] || npm ci; npx prisma migrate deploy'
+    volumes:
+      - ./backend:/app
+      - backend-node-modules:/app/node_modules
+
+  backend:
+    build:
+      target: deps
+    # The deps stage never ran `prisma generate` — that happens in build.
+    command:
+      - sh
+      - -c
+      - '[ -x node_modules/.bin/nest ] || npm ci; npx prisma generate && npx nest start --watch'
+    environment:
+      NODE_ENV: development
+      COOKIE_SECURE: "false"
+      TRUST_PROXY: "false"
+      LOG_LEVEL: debug
+    volumes:
+      - ./backend:/app
+      - backend-node-modules:/app/node_modules
+    # Watch mode restarts on its own; a healthcheck would flap during compiles
+    healthcheck:
+      disable: true
+
+  frontend:
+    build:
+      target: deps
+    command:
+      - sh
+      - -c
+      - '[ -x node_modules/.bin/next ] || npm ci; npm run dev'
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+      - frontend-next-cache:/app/.next
+    depends_on:
+      backend:
+        condition: service_started
+    healthcheck:
+      disable: true
+
+volumes:
+  backend-node-modules:
+  frontend-node-modules:
+  frontend-next-cache:

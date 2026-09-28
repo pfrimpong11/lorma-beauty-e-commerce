@@ -1,0 +1,40 @@
+# ==========================================================================
+# Lorma Beauty POS — public tunnel / reverse-proxy overlay
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d
+#   ngrok http 3200
+#
+# Use this whenever the POS is reached on a host the browser did not start
+# from: an ngrok or Cloudflare tunnel, a LAN address, or a real reverse
+# proxy in production.
+#
+# What it changes, and why each one is needed:
+#
+#   API_PROXY_TARGET  The browser stops talking to the API directly and
+#                     goes through the frontend instead. Without this the
+#                     page would try http://localhost:4000, which on a
+#                     remote device is that device's own machine.
+#
+#   TRUST_PROXY       The API is now behind a hop, so X-Forwarded-* must
+#                     be trusted for Secure cookies and real client IPs
+#                     in the audit log.
+#
+#   COOKIE_SECURE     Tunnels terminate TLS, so the session cookie should
+#                     be HTTPS-only.
+#
+#   COOKIE_SAMESITE   Lax, not None: with the proxy everything is one
+#                     origin, so the refresh cookie is first-party.
+# ==========================================================================
+
+services:
+  frontend:
+    environment:
+      API_PROXY_TARGET: http://backend:4000
+      # Empty: the injected config falls back to relative URLs.
+      API_URL: ""
+
+  backend:
+    environment:
+      TRUST_PROXY: "true"
+      COOKIE_SECURE: "true"
+      COOKIE_SAMESITE: lax

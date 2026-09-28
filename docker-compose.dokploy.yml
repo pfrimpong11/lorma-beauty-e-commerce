@@ -23,6 +23,13 @@
 #
 # In Dokploy, add a Domain pointing at service "frontend", port 3000.
 # Never expose "backend" as a domain: the frontend proxies /api to it.
+#
+# This file carries no "ports:" and no "container_name:", and must not gain
+# either. A host port binding clashes with whatever else the server runs and
+# would put the API on the internet; a fixed container name collides the
+# moment this stack is deployed more than once. Services find each other by
+# their compose service name — postgres, backend, frontend — so DATABASE_URL
+# must use "postgres" as its host, not localhost.
 # ==========================================================================
 
 name: lorma-beauty-pos
@@ -30,7 +37,6 @@ name: lorma-beauty-pos
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: lorma-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -50,10 +56,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
-    # Not published by default: the database is reachable only on the
-    # internal network. Uncomment for direct psql/GUI access in dev.
-    # ports:
-    #   - "${POSTGRES_PORT:-5432}:5432"
+    # Never published. Postgres is reachable only on lorma-net, which
+    # Traefik is not attached to.
 
   # One-shot migration runner. The API waits for this to finish, so
   # migrations never race against a starting (or replicated) app.
@@ -61,7 +65,6 @@ services:
     build:
       context: ./backend
       target: runtime
-    container_name: lorma-migrate
     restart: "no"
     environment:
       DATABASE_URL: ${DATABASE_URL}
@@ -76,7 +79,6 @@ services:
     build:
       context: ./backend
       target: runtime
-    container_name: lorma-backend
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -119,7 +121,6 @@ services:
     build:
       context: ./frontend
       target: runtime
-    container_name: lorma-frontend
     restart: unless-stopped
     environment:
       NODE_ENV: production

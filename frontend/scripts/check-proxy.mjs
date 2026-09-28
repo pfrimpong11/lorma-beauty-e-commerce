@@ -92,6 +92,35 @@ const indicator = read('src/components/shell/SyncIndicator.tsx');
 check('the cashier is told it is the server, not the wifi',
   indicator.includes("'server-error'") && indicator.includes('Server error'), true);
 
+/*
+ * The Dokploy file. Traefik routes to containers over its own network and
+ * names them itself, so a host port binding clashes with whatever else the
+ * server runs — and would put the API on the internet — while a fixed
+ * container name collides the moment the stack is deployed twice.
+ */
+console.log('\nthe Dokploy stack stays behind the proxy');
+const dokployPath = '../docker-compose.dokploy.yml';
+check('the Dokploy compose file exists', existsSync(dokployPath), true);
+if (existsSync(dokployPath)) {
+  const dk = readFileSync(dokployPath, 'utf8');
+  const directive = (name) =>
+    dk.split('\n').filter((l) => new RegExp(`^\\s*${name}:`).test(l)).length;
+
+  check('no host port bindings', directive('ports'), 0);
+  check('no fixed container names', directive('container_name'), 0);
+  check('the API is exposed to the stack only', /expose:\n\s+- "4000"/.test(dk), true);
+  check('Traefik can reach the frontend', /- dokploy-network/.test(dk), true);
+  check('the shared network is external, not owned here',
+    /dokploy-network:\n\s+external: true/.test(dk), true);
+  // Postgres on the shared network would be reachable by every other stack
+  // on that server.
+  check('the database stays off the shared network',
+    (dk.match(/- dokploy-network/g) ?? []).length, 1);
+  check('the browser is told to use this origin', /API_URL: ""/.test(dk), true);
+  check('cookies are Secure behind TLS', /COOKIE_SECURE: "true"/.test(dk), true);
+  check('forwarded headers are trusted', /TRUST_PROXY: "true"/.test(dk), true);
+}
+
 if (failed > 0) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

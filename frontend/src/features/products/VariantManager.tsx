@@ -4,14 +4,13 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { formatAmount } from '@/lib/format';
 import { toast } from '@/store/toast';
 import { cn } from '@/lib/cn';
-import { availableSizes } from './sizes';
+import { SizeSelect } from './SizeSelect';
 
 export interface ProductVariant {
   id: string;
@@ -77,8 +76,6 @@ export function VariantManager({
   const variants = data?.variants ?? [];
   const hasSizes = variants.length > 0;
   const taken = variants.map((v) => v.variantName);
-  const openOptions = availableSizes([...taken, form.baseVariantName]);
-  const baseOptions = availableSizes([form.variantName]);
 
   const refreshAll = async () => {
     await refetch();
@@ -226,24 +223,22 @@ export function VariantManager({
       {adding ? (
         <div className="mt-4 space-y-4 rounded-lg bg-surface-sunken p-3">
           {!hasSizes && (
-            <Select
+            <SizeSelect
               label={`What size is the current ${productName}?`}
               value={form.baseVariantName}
-              onChange={(e) => setForm({ ...form, baseVariantName: e.target.value })}
-              groups={baseOptions}
-              placeholder="Choose a size…"
+              onChange={(size) => setForm({ ...form, baseVariantName: size })}
+              taken={[form.variantName]}
               hint="The stock this product already has is a size too, so it needs a name."
               required
             />
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Select
+            <SizeSelect
               label="New size"
               value={form.variantName}
-              onChange={(e) => setForm({ ...form, variantName: e.target.value })}
-              groups={openOptions}
-              placeholder="Choose a size…"
+              onChange={(size) => setForm({ ...form, variantName: size })}
+              taken={[...taken, form.baseVariantName]}
               required
             />
             <Input
@@ -333,12 +328,11 @@ export function VariantManager({
         title={`Rename ${renaming?.variantName ?? 'size'}`}
         confirmLabel="Rename"
         message={
-          <Select
+          <SizeSelect
             label="Size"
             value={renameTo}
-            onChange={(e) => setRenameTo(e.target.value)}
-            groups={availableSizes(taken.filter((t) => t !== renaming?.variantName))}
-            placeholder="Choose a size…"
+            onChange={setRenameTo}
+            taken={taken.filter((label) => label !== renaming?.variantName)}
             autoFocus
           />
         }

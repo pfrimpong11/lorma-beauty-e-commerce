@@ -9,7 +9,7 @@ import { api } from '@/lib/api';
 import { toast } from '@/store/toast';
 import { BarcodeManager } from './BarcodeManager';
 import { VariantManager } from './VariantManager';
-import { SIZE_GROUPS } from './sizes';
+import { SizeSelect } from './SizeSelect';
 import { NameSuggestions, type ProductSuggestion } from './NameSuggestions';
 import { StockEditor } from './StockEditor';
 
@@ -371,15 +371,15 @@ export function ProductForm({
             <div className="rounded-xl border border-line bg-surface-sunken p-4">
               {/* Sized here rather than only after saving, because the stock
                   below is the stock of this size and the two belong together. */}
-              <Select
-                label="Size"
-                value={form.variantName}
-                onChange={(e) => setForm({ ...form, variantName: e.target.value })}
-                groups={SIZE_GROUPS}
-                placeholder="No sizes — sold as one product"
-                hint="Pick one only if this product comes in several sizes. You can add the rest after saving."
-                wrapperClassName="mb-4"
-              />
+              <div className="mb-4">
+                <SizeSelect
+                  label="Size"
+                  value={form.variantName}
+                  onChange={(size) => setForm({ ...form, variantName: size })}
+                  placeholder="No sizes — sold as one product"
+                  hint="Pick one only if this product comes in several sizes. You can add the rest after saving."
+                />
+              </div>
 
               <Input
                 label="Quantity in stock"

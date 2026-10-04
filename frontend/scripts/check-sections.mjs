@@ -180,16 +180,26 @@ try {
     /variantName && \(/.test(products), true);
   const manager = readFileSync('src/features/products/VariantManager.tsx', 'utf8');
   check('the size can be set while adding the product',
-    /<Select[\s\S]{0,120}label="Size"/.test(form), true);
-  check('the size is chosen, never typed',
-    /groups=\{SIZE_GROUPS\}/.test(form) && !/label="New size"[\s\S]{0,80}<Input/.test(manager), true);
+    /<SizeSelect[\s\S]{0,120}label="Size"/.test(form), true);
+  check('the list is the default, typing is the exception',
+    /<SizeSelect/.test(form) && !/label="Size"[\s\S]{0,80}<Input/.test(form), true);
   check('the manager chooses too, in all three places',
-    (manager.match(/groups=\{/g) ?? []).length, 3);
+    (manager.match(/<SizeSelect/g) ?? []).length, 3);
+  // A size the list does not have must still be enterable, or such a
+  // product simply cannot be added.
+  const sizeSelect = readFileSync('src/features/products/SizeSelect.tsx', 'utf8');
+  check('a size outside the list can be typed', /otherValue=\{OTHER\}/.test(sizeSelect), true);
+  check('typing one is not the default path', /useState\(\(\) =>/.test(sizeSelect), true);
+  check('an existing custom size reopens as text, not as blank',
+    /!ALL_SIZES\.includes\(value\)/.test(sizeSelect), true);
+  check('there is a way back to the list', /Choose from the list instead/.test(sizeSelect), true);
+  check('all four places share one control',
+    (form.match(/<SizeSelect/g) ?? []).length + (manager.match(/<SizeSelect/g) ?? []).length, 4);
   // One list for both forms, or the two drift into offering different sizes.
-  check('both forms read the same list',
-    /from '\.\/sizes'/.test(form) && /from '\.\/sizes'/.test(manager), true);
+  check('both forms go through the same control',
+    /from '\.\/SizeSelect'/.test(form) && /from '\.\/SizeSelect'/.test(manager), true);
   check('a label already used is not offered again',
-    /availableSizes/.test(manager), true);
+    /taken=\{/.test(manager), true);
 
   console.log('\ntaking payment');
   const pay = readFileSync('src/features/pos/PaymentModal.tsx', 'utf8');

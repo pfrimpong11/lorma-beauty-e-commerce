@@ -14,6 +14,13 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
    */
   groups?: Array<{ label: string; options: string[] }>;
   placeholder?: string;
+  /**
+   * A final entry that stands for "none of these". Kept separate from the
+   * options so it always sorts last and can never be mistaken for a real
+   * choice by code that reads the groups.
+   */
+  otherValue?: string;
+  otherLabel?: string;
   /** Explanatory line below the control, as Input has. */
   hint?: string;
   /** Classes for the wrapper; `className` lands on the select itself. */
@@ -21,7 +28,20 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, error, options, groups, placeholder, hint, wrapperClassName, className, id, ...props },
+  {
+    label,
+    error,
+    options,
+    groups,
+    otherValue,
+    otherLabel,
+    placeholder,
+    hint,
+    wrapperClassName,
+    className,
+    id,
+    ...props
+  },
   ref,
 ) {
   const generated = useId();
@@ -64,6 +84,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
                 {option.label}
               </option>
             ))}
+        {otherValue && <option value={otherValue}>{otherLabel ?? 'Other…'}</option>}
       </select>
       {error ? (
         <p role="alert" className="mt-1.5 text-xs font-medium text-danger">

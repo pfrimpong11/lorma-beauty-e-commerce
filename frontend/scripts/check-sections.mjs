@@ -285,8 +285,12 @@ try {
   check('stock can be corrected after the product exists',
     /<StockEditor/.test(products) || /<StockEditor/.test(form), true);
   // A stock figure that moves with nothing explaining it makes every later
-  // count impossible to trust.
-  check('a correction needs a reason', /reason\.trim\(\)\.length < 3/.test(stockEditor), true);
+  // count impossible to trust — so the movement still carries a reason, it
+  // is just written rather than typed.
+  check('the movement still records why', /reason: `Edited from the product form/.test(stockEditor), true);
+  check('but nobody is asked to type one', /label="Reason"/.test(stockEditor), false);
+  check('the reason names the change it made',
+    /\$\{currentStock\} → \$\{next\}/.test(stockEditor), true);
   check('it writes a movement rather than overwriting silently',
     /\/inventory\/adjust/.test(stockEditor), true);
   check('raising a batch-tracked product is blocked in the form too',

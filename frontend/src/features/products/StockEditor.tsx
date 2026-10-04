@@ -36,7 +36,6 @@ export function StockEditor({
 
   const [open, setOpen] = useState(false);
   const [quantity, setQuantity] = useState(String(currentStock));
-  const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
 
   if (!canAdjust) return null;
@@ -52,7 +51,6 @@ export function StockEditor({
     Number.isNaN(next) ||
     next < 0 ||
     delta === 0 ||
-    reason.trim().length < 3 ||
     raisingBatched;
 
   const submit = async () => {
@@ -61,16 +59,22 @@ export function StockEditor({
       await api.post('/inventory/adjust', {
         productId,
         newQuantity: next,
-        reason: reason.trim(),
+        /*
+         * Every stock movement carries a reason, because a figure that
+         * moves with nothing explaining it makes later counts impossible to
+         * trust. Asking for one here interrupted a quick correction, so it
+         * is written automatically — the ledger still says where the change
+         * came from, and the audit log already records who made it.
+         */
+        reason: `Edited from the product form (${currentStock} → ${next})`,
       });
       for (const key of ['products', 'inventory', 'dashboard', 'expiry']) {
         void queryClient.invalidateQueries({ queryKey: [key] });
       }
       toast.success(`${productName} is now ${next} in stock.`);
       setOpen(false);
-      setReason('');
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'The stock could not be corrected.');
+      toast.error(error instanceof ApiError ? error.message : 'The stock could not be updated.');
     } finally {
       setBusy(false);
     }
@@ -85,21 +89,21 @@ export function StockEditor({
             {currentStock} in stock.{' '}
             {tracksExpiry
               ? 'Held in batches — new stock comes in through Receive stock.'
-              : 'Correct it here if the shelf says otherwise.'}
+              : 'Edit it here if the shelf says otherwise.'}
           </p>
         </div>
         {!open && (
           <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-            Correct
+            Edit
           </Button>
         )}
       </div>
 
       {open && (
         <div className="mt-4 space-y-4 rounded-lg bg-surface-sunken p-3">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div>
             <Input
-              label="Counted quantity"
+              label="New quantity"
               type="number"
               min={0}
               inputMode="numeric"
@@ -117,14 +121,6 @@ export function StockEditor({
               }
               required
             />
-            <Input
-              label="Reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Recount after stocktake"
-              hint="Recorded against the movement, so the change can be explained later"
-              required
-            />
           </div>
 
           <div className="flex justify-end gap-2">
@@ -133,13 +129,12 @@ export function StockEditor({
               onClick={() => {
                 setOpen(false);
                 setQuantity(String(currentStock));
-                setReason('');
               }}
             >
               Cancel
             </Button>
             <Button onClick={submit} disabled={invalid || busy}>
-              {busy ? 'Saving…' : 'Save correction'}
+              {busy ? 'Saving…' : 'Save'}
             </Button>
           </div>
         </div>

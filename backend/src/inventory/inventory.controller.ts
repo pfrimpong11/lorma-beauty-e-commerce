@@ -386,7 +386,7 @@ export class InventoryController {
     return this.prisma.$transaction(async (tx) => {
       const product = await tx.product.findUniqueOrThrow({
         where: { id: dto.productId },
-        select: { name: true },
+        select: { name: true, tracksExpiry: true },
       });
 
       const before = await tx.inventory.findUniqueOrThrow({
@@ -398,6 +398,52 @@ export class InventoryController {
       if (delta === 0) {
         throw new BadRequestException('The counted quantity matches the current stock level.');
       }
+
+      /*
+       * A batch-tracked product sells from its batches, not from this
+       * figure, so moving one without the other leaves the till showing
+       * stock it cannot sell. That used to happen silently.
+       *
+       * Counting fewer is unambiguous: the missing units come off the
+       * batches nearest expiry, the order they would have sold in anyway.
+       * Counting MORE is not — the extra units physically exist and carry
+       * an expiry only the person holding them knows, so they come in
+       * through Receive stock, where it is asked for.
+       */
+      if (product.tracksExpiry) {
+        if (delta > 0) {
+          throw new BadRequestException(
+            `${product.name} is tracked in batches, so its stock cannot simply be raised — ` +
+              'the new units need a batch number and expiry date. ' +
+              'Use Inventory \u2192 Receive stock instead.',
+          );
+        }
+
+        const batches = await tx.productBatch.findMany({
+          where: { productId: dto.productId, quantity: { gt: 0 } },
+          orderBy: { expiryDate: 'asc' },
+          select: { id: true, quantity: true },
+        });
+
+        const held = batches.reduce((sum, b) => sum + b.quantity, 0);
+        if (held < -delta) {
+          throw new BadRequestException(
+            `${product.name} holds ${held} across its batches, so it cannot be reduced by ${-delta}.`,
+          );
+        }
+
+        let remaining = -delta;
+        for (const batch of batches) {
+          if (remaining <= 0) break;
+          const take = Math.min(batch.quantity, remaining);
+          await tx.productBatch.update({
+            where: { id: batch.id },
+            data: { quantity: { decrement: take } },
+          });
+          remaining -= take;
+        }
+      }
+
 
       await tx.inventory.update({
         where: { productId: dto.productId },

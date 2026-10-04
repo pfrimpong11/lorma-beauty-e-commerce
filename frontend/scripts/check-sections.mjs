@@ -183,8 +183,8 @@ try {
     /<SizeSelect[\s\S]{0,120}label="Size"/.test(form), true);
   check('the list is the default, typing is the exception',
     /<SizeSelect/.test(form) && !/label="Size"[\s\S]{0,80}<Input/.test(form), true);
-  check('the manager chooses too, in all three places',
-    (manager.match(/<SizeSelect/g) ?? []).length, 3);
+  check('the manager chooses too, for the first size and each new one',
+    (manager.match(/<SizeSelect/g) ?? []).length, 2);
   // A size the list does not have must still be enterable, or such a
   // product simply cannot be added.
   const sizeSelect = readFileSync('src/features/products/SizeSelect.tsx', 'utf8');
@@ -193,8 +193,13 @@ try {
   check('an existing custom size reopens as text, not as blank',
     /!ALL_SIZES\.includes\(value\)/.test(sizeSelect), true);
   check('there is a way back to the list', /Choose from the list instead/.test(sizeSelect), true);
-  check('all four places share one control',
-    (form.match(/<SizeSelect/g) ?? []).length + (manager.match(/<SizeSelect/g) ?? []).length, 4);
+  check('every place a size is chosen shares one control',
+    (form.match(/<SizeSelect/g) ?? []).length + (manager.match(/<SizeSelect/g) ?? []).length, 3);
+  // The size list is a summary, not an editor: a row carries no controls.
+  check('the size list offers no row actions',
+    /Rename|Separate/.test(manager), false);
+  check('one size is not announced as "1 sizes"',
+    /variants\.length === 1 \? 'size' : 'sizes'/.test(manager), true);
   // One list for both forms, or the two drift into offering different sizes.
   check('both forms go through the same control',
     /from '\.\/SizeSelect'/.test(form) && /from '\.\/SizeSelect'/.test(manager), true);

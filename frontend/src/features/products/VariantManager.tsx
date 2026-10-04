@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { formatAmount } from '@/lib/format';
 import { toast } from '@/store/toast';
@@ -64,9 +63,6 @@ export function VariantManager({
   const [form, setForm] = useState(EMPTY);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [renaming, setRenaming] = useState<ProductVariant | null>(null);
-  const [renameTo, setRenameTo] = useState('');
-  const [detaching, setDetaching] = useState<ProductVariant | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['product-variants', productId],
@@ -107,28 +103,6 @@ export function VariantManager({
     }
   };
 
-  const rename = async () => {
-    if (!renaming) return;
-    try {
-      await api.patch(`/products/${renaming.id}/variant`, { variantName: renameTo.trim() });
-      await refreshAll();
-      toast.success('Size renamed.');
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'That size could not be renamed.');
-    }
-  };
-
-  const detach = async () => {
-    if (!detaching) return;
-    try {
-      await api.delete(`/products/${detaching.id}/variant`);
-      await refreshAll();
-      toast.success(`${detaching.variantName} is now a product on its own.`);
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'That size could not be separated.');
-    }
-  };
-
   // Opening stock on an expiry-tracked product needs a batch, which this
   // compact form has no room for. Those sizes are received through
   // Inventory instead, the same route a plain product would take.
@@ -153,7 +127,7 @@ export function VariantManager({
               : 'Add a size if this product is sold in more than one, such as Small and Large, or 200ml and 400ml.'}
           </p>
         </div>
-        {hasSizes && <Badge tone="neutral">{variants.length} sizes</Badge>}
+        {hasSizes && <Badge tone="neutral">{variants.length} {variants.length === 1 ? 'size' : 'sizes'}</Badge>}
       </div>
 
       {isLoading ? (
@@ -183,36 +157,13 @@ export function VariantManager({
                     {v.barcode ? ` · ${v.barcode}` : ''}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-sm font-semibold tabular text-ink">
-                      {formatAmount(v.sellingPrice)}
-                    </p>
-                    <p className="text-xs text-ink-subtle">
-                      {v.isOutOfStock ? 'Out of stock' : `${v.stock} in stock`}
-                    </p>
-                  </div>
-                  <span className="flex gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="border border-line"
-                      onClick={() => {
-                        setRenaming(v);
-                        setRenameTo(v.variantName ?? '');
-                      }}
-                    >
-                      Rename
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="border border-line"
-                      onClick={() => setDetaching(v)}
-                    >
-                      Separate
-                    </Button>
-                  </span>
+                <div className="text-right">
+                  <p className="text-sm font-semibold tabular text-ink">
+                    {formatAmount(v.sellingPrice)}
+                  </p>
+                  <p className="text-xs text-ink-subtle">
+                    {v.isOutOfStock ? 'Out of stock' : `${v.stock} in stock`}
+                  </p>
                 </div>
               </li>
             ))}
@@ -321,44 +272,6 @@ export function VariantManager({
         </Button>
       )}
 
-      <ConfirmDialog
-        open={renaming !== null}
-        onClose={() => setRenaming(null)}
-        onConfirm={rename}
-        title={`Rename ${renaming?.variantName ?? 'size'}`}
-        confirmLabel="Rename"
-        message={
-          <SizeSelect
-            label="Size"
-            value={renameTo}
-            onChange={setRenameTo}
-            taken={taken.filter((label) => label !== renaming?.variantName)}
-            autoFocus
-          />
-        }
-      />
-
-      <ConfirmDialog
-        open={detaching !== null}
-        onClose={() => setDetaching(null)}
-        onConfirm={detach}
-        title={`Separate ${detaching?.variantName ?? 'this size'}?`}
-        confirmLabel="Separate"
-        message={
-          <>
-            <p>
-              It becomes a product on its own, keeping its stock, price and barcodes. Nothing is
-              deleted.
-            </p>
-            {variants.length === 2 && (
-              <p className="mt-2">
-                That leaves one size behind, which is not a set, so the other one stops being a
-                size too.
-              </p>
-            )}
-          </>
-        }
-      />
     </div>
   );
 }

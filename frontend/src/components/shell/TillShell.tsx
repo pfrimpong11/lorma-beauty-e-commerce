@@ -8,6 +8,7 @@ import { initials } from '@/lib/format';
 import { useAuth } from '@/store/auth';
 import { useCart } from '@/store/cart';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { IdleWarning } from './IdleWarning';
 import { tillNavFor, canUseTill } from './nav-items';
 import { Icon } from './Icon';
 import { SyncIndicator } from './SyncIndicator';
@@ -139,6 +140,10 @@ export function TillShell({ children }: { children: React.ReactNode }) {
             : '')
         }
       />
+
+      {/* Signs out after a spell of inactivity; see useIdleLogout. */}
+      <IdleWarning enabled={status === 'authenticated'} />
+
     </div>
   );
 }

@@ -1,7 +1,7 @@
 {
   "name": "lorma-beauty-pos-frontend",
   "version": "1.0.0",
-  "description": "Lorma Beauty POS — Next.js PWA",
+  "description": "Lorma Beauty POS \u2014 Next.js PWA",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
@@ -12,13 +12,14 @@
     "typecheck": "tsc --noEmit",
     "check:sections": "node scripts/check-sections.mjs",
     "check:modal-focus": "node scripts/check-modal-focus.mjs",
-    "check": "npm run check:sections && npm run check:modal-focus && npm run check:scanner && npm run check:scan-to-cart && npm run check:responsive && npm run check:proxy && npm run check:held-sales && npm run check:sw",
+    "check": "npm run check:sections && npm run check:modal-focus && npm run check:scanner && npm run check:scan-to-cart && npm run check:responsive && npm run check:proxy && npm run check:held-sales && npm run check:sw && npm run check:idle",
     "check:scanner": "node scripts/check-scanner.mjs",
     "check:scan-to-cart": "node scripts/check-scan-to-cart.mjs",
     "check:responsive": "node scripts/check-responsive.mjs",
     "check:proxy": "node scripts/check-proxy.mjs",
     "check:held-sales": "node scripts/check-held-sales.mjs",
-    "check:sw": "node scripts/check-sw.mjs"
+    "check:sw": "node scripts/check-sw.mjs",
+    "check:idle": "node scripts/check-idle-logout.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.64.1",

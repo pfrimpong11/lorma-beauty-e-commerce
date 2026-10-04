@@ -1,5 +1,7 @@
 'use client';
 
+import { IdleWarning } from './IdleWarning';
+
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -202,6 +204,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
         <main className="min-w-0 flex-1">{children}</main>
       </div>
+
+      {/* Signs out after a spell of inactivity; see useIdleLogout. */}
+      <IdleWarning enabled={status === 'authenticated'} />
+
     </div>
   );
 }

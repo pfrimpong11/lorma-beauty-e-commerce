@@ -10,6 +10,8 @@ import { toast } from '@/store/toast';
 import { BarcodeManager } from './BarcodeManager';
 import { VariantManager } from './VariantManager';
 import { SIZE_GROUPS } from './sizes';
+import { NameSuggestions, type ProductSuggestion } from './NameSuggestions';
+import { StockEditor } from './StockEditor';
 
 export interface ProductRow {
   id: string;
@@ -207,15 +209,51 @@ export function ProductForm({
     >
       {(fieldError) => (
         <>
-          <Input
-            label="Product name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="e.g. Vitamin C Brightening Serum 30ml"
-            error={fieldError('name')}
-            required
-            data-autofocus
-          />
+          <div>
+            <Input
+              label="Product name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="e.g. Vitamin C Brightening Serum 30ml"
+              error={fieldError('name')}
+              required
+              data-autofocus
+            />
+
+            {/* Offered while adding only. Editing a product is not the place
+                to be shown other products with similar names. */}
+            {!editing && (
+              <NameSuggestions
+                query={form.name}
+                onPick={(p) => {
+                  /*
+                   * Copies the details, not the identity. The new product is
+                   * still new: no id, no SKU and no barcode are taken, and
+                   * the name stays editable — usually the next thing changed,
+                   * since this is how a second size gets added.
+                   */
+                  setForm((prev) => ({
+                    ...prev,
+                    name: p.name,
+                    brand: p.brand ?? '',
+                    categoryId: p.category.id,
+                    unit: p.unit,
+                    costPrice: p.costPrice,
+                    sellingPrice: p.sellingPrice,
+                    minStockLevel: String(p.minStockLevel),
+                    tracksExpiry: p.tracksExpiry,
+                  }));
+                  // The SKU must be regenerated for the copied category, not
+                  // inherited from a product that already holds it.
+                  setSkuEdited(false);
+                  toast.info(
+                    `Copied from ${p.sku}`,
+                    'Change the size or name, then check the price before saving.',
+                  );
+                }}
+              />
+            )}
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
@@ -424,6 +462,15 @@ export function ProductForm({
               attach to. On create, the field above seeds the primary. */}
           {editing && (
             <>
+              {/* Stock is a correction here, with a reason, not a silent
+                  overwrite — see StockEditor. */}
+              <StockEditor
+                productId={editing.id}
+                productName={editing.name}
+                currentStock={editing.stock}
+                tracksExpiry={editing.tracksExpiry ?? false}
+              />
+
               <BarcodeManager productId={editing.id} />
               {/* Sizes only make sense once the product exists — each one is
                   a product in its own right and needs something to group with. */}

@@ -40,3 +40,6 @@ backups/*.dump
 # generated
 frontend/public/sw.js.map
 backend/prisma/generated/
+
+# typescript incremental build cache
+*.tsbuildinfo

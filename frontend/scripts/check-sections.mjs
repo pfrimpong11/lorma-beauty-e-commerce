@@ -269,6 +269,35 @@ try {
   check('the CSS variable is unchanged, so nothing else had to move',
     /variable: '--font-poppins'/.test(layout), true);
 
+  console.log('\nediting an existing product');
+  const stockEditor = readFileSync('src/features/products/StockEditor.tsx', 'utf8');
+  const suggest = readFileSync('src/features/products/NameSuggestions.tsx', 'utf8');
+  check('stock can be corrected after the product exists',
+    /<StockEditor/.test(products) || /<StockEditor/.test(form), true);
+  // A stock figure that moves with nothing explaining it makes every later
+  // count impossible to trust.
+  check('a correction needs a reason', /reason\.trim\(\)\.length < 3/.test(stockEditor), true);
+  check('it writes a movement rather than overwriting silently',
+    /\/inventory\/adjust/.test(stockEditor), true);
+  check('raising a batch-tracked product is blocked in the form too',
+    /raisingBatched/.test(stockEditor), true);
+  check('it is gated on the adjust permission',
+    /can\('inventory\.adjust'\)/.test(stockEditor), true);
+
+  console.log('\nadding a product that already half-exists');
+  check('typing a name offers what is already in the catalogue',
+    /<NameSuggestions/.test(form), true);
+  check('picking one copies its details', /costPrice: p\.costPrice/.test(form), true);
+  // Copying the SKU or id would make the new product collide with the old.
+  check('it copies details, never identity',
+    /sku: p\.sku/.test(form) || /id: p\.id/.test(form), false);
+  check('the SKU is regenerated for the copied category',
+    /setSkuEdited\(false\)/.test(form), true);
+  check('suggestions are offered while adding, not while editing',
+    /\{!editing && \(\s*<NameSuggestions/.test(form), true);
+  // A slow response must not overwrite a newer one.
+  check('out-of-order responses are discarded', /ticket !== latest\.current/.test(suggest), true);
+
   console.log('\nsection switcher');
   check('hidden for sales rep', canUseTill(CASHIER) && canUseBackOffice(CASHIER), false);
   check('hidden for stock controller', canUseTill(STOCK) && canUseBackOffice(STOCK), false);

@@ -39,7 +39,9 @@
 # must use "postgres" as its host, not localhost.
 # ==========================================================================
 
-name: lorma-beauty-pos
+# No project name: Dokploy passes -p per stack, which is what keeps
+# production and staging apart on one host. Setting it here would override
+# that and make both stacks the same project.
 
 services:
   migrate:
@@ -49,6 +51,9 @@ services:
     restart: "no"
     environment:
       DATABASE_URL: ${DATABASE_URL}
+      # Arms the seed's production guard. This is the container someone
+      # would exec into to bootstrap, so it is the one that must refuse.
+      NODE_ENV: ${NODE_ENV:-production}
     # Dokploy reports only "exit 1" and throws the container output away, so
     # the one thing that explains the failure is printed here, on the deploy
     # log itself. The password is stripped before anything is echoed.
@@ -115,7 +120,7 @@ services:
       target: runtime
     restart: unless-stopped
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-production}
       BACKEND_PORT: 4000
       DATABASE_URL: ${DATABASE_URL}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
@@ -161,7 +166,7 @@ services:
       target: runtime
     restart: unless-stopped
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
       # Read at request time and injected into the page — see
       # frontend/src/lib/runtime-config.ts. Changing this needs a restart,
@@ -203,7 +208,9 @@ networks:
   # stack joins it rather than trying to own it.
   dokploy-network:
     external: true
+  # Deliberately unnamed. Compose prefixes it with the project, so
+  # production and staging each get their own; a fixed name would have the
+  # second stack silently join the first one's network.
   lorma-net:
-    name: lorma-net
     driver: bridge
 

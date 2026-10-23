@@ -1,0 +1,402 @@
+[
+  {
+    "id": "3639",
+    "name": "“B” Oil with Antioxidants",
+    "price": 60,
+    "image": "/assets/dbdbb42182-rdn-b-oil-30ml-1-315x315.jpg",
+    "href": "/product/b-oil/",
+    "category": "face"
+  },
+  {
+    "id": "3658",
+    "name": "100% L-Ascorbic Acid Powder",
+    "price": 58,
+    "image": "/assets/48d9d6e827-rdn-100pct-l-ascorbic-acid-powder-20g-1-315x315.jpg",
+    "href": "/product/100-l-ascorbic-acid-powder/",
+    "category": "face"
+  },
+  {
+    "id": "3646",
+    "name": "COPPER AMINO ISOLATE LIPID 1 % (CAIL)",
+    "price": 90,
+    "image": "/assets/f241a4db3f-nid-copper-amino-isolate-lipid-1-15ml-1-315x315.jpg",
+    "href": "/product/copper-amino-isolate-lipid-1-cail/",
+    "category": "face"
+  },
+  {
+    "id": "3649",
+    "name": "LOW-VISCOSITY CLEANING ESTER",
+    "price": 45,
+    "image": "/assets/8042519d1d-nid-low-viscosity-cleaning-ester-240ml-1-315x315.jpg",
+    "href": "/product/low-viscosity-cleaning-ester/",
+    "category": "face"
+  },
+  {
+    "id": "3685",
+    "name": "Mineral UV Filters SPF 15",
+    "price": 8.9,
+    "image": "/assets/0cf3e6ceb7-rdn-mineral-uv-filters-spf-15-with-antioxidants-50ml-1-315x315.jpg",
+    "href": "/product/mineral-uv-filters-spf-15-with-antioxidants/",
+    "category": "face"
+  },
+  {
+    "id": "3682",
+    "name": "Mineral UV Filters SPF 30",
+    "price": 27,
+    "image": "/assets/e66730fa1e-rdn-mineral-uv-filters-spf-30-with-antioxidants-50ml-1-315x315.jpg",
+    "href": "/product/mineral-uv-filters-spf-30-with-antioxidants/",
+    "category": "face"
+  },
+  {
+    "id": "109",
+    "name": "Multi-Molecuar Complex",
+    "price": 60,
+    "image": "/assets/90e226e5bd-test-1-315x315.jpg",
+    "href": "/product/multi-molecular-hyaluronic-complex/",
+    "category": "face"
+  },
+  {
+    "id": "3676",
+    "name": "Parsley Anti-Oxidant Eye Serum",
+    "price": 69,
+    "image": "/assets/13c55d4a69-Aesop-Skin-Parsley-Seed-Anti-Oxidant-Eye-Serum-15mL-Large-684x668px-1-315x315.jpg",
+    "href": "/product/parsley-seed-anti-oxidant-eye-serum/",
+    "category": "face"
+  },
+  {
+    "id": "3673",
+    "name": "Parsley Seed Anti-Oxidant Eye Cream",
+    "price": 73,
+    "image": "/assets/1c7163b055-Aesop-Skin-Parsley-Seed-Anti-Oxidant-Eye-Cream-10mL-large-1-315x315.jpg",
+    "href": "/product/parsley-seed-anti-oxidant-eye-cream/",
+    "category": "face"
+  },
+  {
+    "id": "3664",
+    "name": "Primrose Facial Hydrating Cream",
+    "price": 45,
+    "image": "/assets/42031305d6-Aesop-Skin-Primrose-Facial-Hydrating-Cream-60mL-large-1-315x315.jpg",
+    "href": "/product/primrose-facial-hydrating-cream/",
+    "category": "face"
+  },
+  {
+    "id": "3688",
+    "name": "Protective Facial Lotion SPF25",
+    "price": 47,
+    "image": "/assets/785101da04-Aesop-Skin-Protective-Facial-Lotion-SPF25-Asia-EU-50mL-Large-782x796px-1-315x315.jpg",
+    "href": "/product/protective-facial-lotion-spf25/",
+    "category": "face"
+  },
+  {
+    "id": "20673",
+    "name": "Regenerating Night Cream",
+    "price": 75,
+    "image": "/assets/233b0ff092-gra0040_regenerating_night_cream_neuro-peptide_violet_leaf_extract_40ml_vessel_c_d_m_1-315x315.jpg",
+    "href": "/product/regenerating-night-cream-neuro-peptide-violet-leaf-extract/",
+    "category": "face"
+  },
+  {
+    "id": "3667",
+    "name": "Remove Oil-based Makeup",
+    "price": 21,
+    "image": "/assets/2729a0eeeb-Aesop-Skin-Remove-60mL-large-1-315x315.jpg",
+    "href": "/product/remove/",
+    "category": "face"
+  },
+  {
+    "id": "3715",
+    "name": "Self Tanning Mousse",
+    "price": 29.95,
+    "image": "/assets/8291c6d730-Self-Tanning-Mousse-Dark_900x-1-315x315.jpg",
+    "href": "/product/self-tanning-mousse/",
+    "category": "body"
+  },
+  {
+    "id": "3655",
+    "name": "SET N.1",
+    "price": 70,
+    "image": "/assets/d84f189559-nid-set-1-1-315x315.jpg",
+    "href": "/product/set-n-1/",
+    "category": "face"
+  },
+  {
+    "id": "3661",
+    "name": "Set N.2",
+    "price": 29,
+    "image": "/assets/3036e4232e-rdn-balance-set-1-315x315.jpg",
+    "href": "/product/set-n-2/",
+    "category": "face"
+  },
+  {
+    "id": "3757",
+    "name": "Classic Conditioner",
+    "price": 13,
+    "image": "/assets/317a824acc-Aesop-Hair-Classic-Conditioner-100mL-Hybris-Large-835x962px-1-315x315.jpg",
+    "href": "/product/classic-conditioner/",
+    "category": "hair"
+  },
+  {
+    "id": "3748",
+    "name": "Classic Shampoo",
+    "price": 13,
+    "image": "/assets/88688b9a3c-Aesop-Hair-Classic-Shampoo-100mL-Hybris-Large-835x962px-1-315x315.jpg",
+    "href": "/product/classic-shampoo/",
+    "category": "hair"
+  },
+  {
+    "id": "3745",
+    "name": "Equalising Shampoo",
+    "price": 39,
+    "image": "/assets/0beb01d7e0-Aesop-Hair-Equalising-Shampoo-500mL-large-1-315x315.jpg",
+    "href": "/product/equalising-shampoo/",
+    "category": "hair"
+  },
+  {
+    "id": "3730",
+    "name": "Honey I Washed My Hair",
+    "price": 11.95,
+    "image": "/assets/546a8dc89d-05563_a-1-315x315.jpg",
+    "href": "/product/honey-i-washed-my-hair/",
+    "category": "hair"
+  },
+  {
+    "id": "4297",
+    "name": "Le Labo",
+    "price": 47,
+    "image": "/assets/f88809128e-lellel007_rose_lelabo_bodylotion_rose31_1560x1960-0sxsz-116ok-315x315.jpg",
+    "href": "/product/le-labo/",
+    "category": "body"
+  },
+  {
+    "id": "3739",
+    "name": "Montalbano",
+    "price": 11.95,
+    "image": "/assets/d33e7fd7b1-05595_a-1-315x315.jpg",
+    "href": "/product/montalbano/",
+    "category": "hair"
+  },
+  {
+    "id": "3751",
+    "name": "Nurturing Conditioner",
+    "price": 39,
+    "image": "/assets/e69dc62f1b-Aesop-Hair-Nurturing-Conditioner-500mL-large-1-315x315.jpg",
+    "href": "/product/nurturing-conditioner/",
+    "category": "hair"
+  },
+  {
+    "id": "3742",
+    "name": "Nurturing Shampoo",
+    "price": 39,
+    "image": "/assets/d91d50ad4c-Aesop-Personal-Mouthwash-500mL-large-Copy-1-315x315.jpg",
+    "href": "/product/nurturing-shampoo/",
+    "category": "hair"
+  },
+  {
+    "id": "4317",
+    "name": "Ouai Haircare",
+    "price": 22,
+    "image": "/assets/3d416f8d7e-ouaoua000_ouai_mediumconditionner_1560x1960-947tr-315x315.jpg",
+    "href": "/product/ouai-haircare/",
+    "category": "hair"
+  },
+  {
+    "id": "3766",
+    "name": "Rose Hair & Scalp Moisturising Masque",
+    "price": 29,
+    "image": "/assets/0c4b57743d-Aesop-Hair-Rose-Hair-Scalp-Moisturising-Masque-120mL-large-1-315x315.jpg",
+    "href": "/product/rose-hair-scalp-moisturising-masque/",
+    "category": "hair"
+  },
+  {
+    "id": "3763",
+    "name": "Sage & Cedar Scalp Treatment",
+    "price": 29,
+    "image": "/assets/1793f49d3d-Aesop-Hair-Sage-and-Cedar-Scalp-Treatment-15mL-5-Large-684x668px-1-315x315.jpg",
+    "href": "/product/sage-cedar-scalp-treatment/",
+    "category": "hair"
+  },
+  {
+    "id": "3775",
+    "name": "Shine Hair & Beard Oil",
+    "price": 27,
+    "image": "/assets/d293485d9c-Aesop-Hair-Shine-25mL-Large-684x668px-1-315x315.jpg",
+    "href": "/product/shine-hair-beard-oil/",
+    "category": "hair"
+  },
+  {
+    "id": "3733",
+    "name": "Soak and Float",
+    "price": 14.95,
+    "image": "/assets/4127fa2a70-00101-soak-and-float-shampoo-bar-1-1-315x315.jpg",
+    "href": "/product/soak-and-float/",
+    "category": "hair"
+  },
+  {
+    "id": "3760",
+    "name": "Super Milk",
+    "price": 39.95,
+    "image": "/assets/61f47ed05c-Aesop-Hair-Rose-Hair-Scalp-Moisturising-Masque-120mL-large-Copy-1-315x315.jpg",
+    "href": "/product/super-milk/",
+    "category": "hair"
+  },
+  {
+    "id": "3769",
+    "name": "Tame Hair Serum",
+    "price": 29,
+    "image": "/assets/c1760f3a30-Aesop-Hair-Tame-Hair-Serum-60mL-Hybris-Large-684x668px-1-315x315.jpg",
+    "href": "/product/tame-hair-serum/",
+    "category": "hair"
+  },
+  {
+    "id": "3772",
+    "name": "Violet Leaf Hair Balm",
+    "price": 27,
+    "image": "/assets/df4458561f-Aesop-Hair-Violet-Leaf-Hair-Balm-60mL-large-1-315x315.jpg",
+    "href": "/product/violet-leaf-hair-balm/",
+    "category": "hair"
+  },
+  {
+    "id": "3706",
+    "name": "Booster, Glow",
+    "price": 16,
+    "image": "/assets/2b1ae4b638-hlm-booster-glow-30ml-1-315x315.jpg",
+    "href": "/product/booster-glow/",
+    "category": "body"
+  },
+  {
+    "id": "3694",
+    "name": "Dream Cream",
+    "price": 29.95,
+    "image": "/assets/0c9a49bd5a-00031_a-1-315x315.jpg",
+    "href": "/product/dream-cream/",
+    "category": "body"
+  },
+  {
+    "id": "3718",
+    "name": "Face Tan Water",
+    "price": 29.95,
+    "image": "/assets/be39a0f32c-Face-Tan-Water_900x-1-315x315.jpg",
+    "href": "/product/face-tan-water/",
+    "category": "body"
+  },
+  {
+    "id": "3700",
+    "name": "Geranium Leaf Body Scrub",
+    "price": 30,
+    "image": "/assets/f264c01dc6-Aesop-Body-Geranium-Leaf-Body-Scrub-180mL-large-1-315x315.jpg",
+    "href": "/product/geranium-leaf-body-scrub/",
+    "category": "body"
+  },
+  {
+    "id": "3712",
+    "name": "Glow Oil",
+    "price": 28,
+    "image": "/assets/eba2ff043b-tcb-glow-oil-100ml-1-315x315.jpg",
+    "href": "/product/glow-oil/",
+    "category": "body"
+  },
+  {
+    "id": "4308",
+    "name": "HA3 Hand Hydrator",
+    "price": 9,
+    "image": "/assets/e9f3bb4e13-tcb-ha3-hand-hydrator-60ml-315x315.jpg",
+    "href": "/product/ha3-hand-hydrator/",
+    "category": "body"
+  },
+  {
+    "id": "4304",
+    "name": "Hand Chemistry",
+    "price": 7,
+    "image": "/assets/ba5c81ec27-tcb-hand-chemistry-30ml-315x315.jpg",
+    "href": "/product/hand-chemistry/",
+    "category": "body"
+  },
+  {
+    "id": "3727",
+    "name": "Herbal Deodorant",
+    "price": 27,
+    "image": "/assets/a8fa19d926-Aesop-Personal-Care-Herbal-Deodorant-50mL-Large-782x796px-1-315x315.jpg",
+    "href": "/product/herbal-deodorant/",
+    "category": "body"
+  },
+  {
+    "id": "3721",
+    "name": "Herbal Deodorant Roll-On",
+    "price": 27,
+    "image": "/assets/811b56d77d-Aesop-Personal-Care-Herbal-Deodorant-Roll-On-50mL-Large-782x796px-2-315x315.jpg",
+    "href": "/product/herbal-deodorant-roll-on/",
+    "category": "body"
+  },
+  {
+    "id": "3709",
+    "name": "Inhibitif Body Serum",
+    "price": 30,
+    "image": "/assets/5d880c3817-tcb-inhibitif-body-serum-240ml-1-315x315.jpg",
+    "href": "/product/inhibitif-body-serum/",
+    "category": "body"
+  },
+  {
+    "id": "3691",
+    "name": "Lime Bounty",
+    "price": 25.95,
+    "image": "/assets/e2ce789ba2-60818_5-1-315x315.jpg",
+    "href": "/product/lime-bounty/",
+    "category": "body"
+  },
+  {
+    "id": "3724",
+    "name": "Mouthwash",
+    "price": 19,
+    "image": "/assets/63394bc282-Aesop-Personal-Mouthwash-500mL-large-1-315x315.jpg",
+    "href": "/product/mouthwash/",
+    "category": "body"
+  },
+  {
+    "id": "3697",
+    "name": "Pansy",
+    "price": 24.95,
+    "image": "/assets/16479f2174-60017-pansy-body-lotion-225g-1-315x315.jpg",
+    "href": "/product/pansy/",
+    "category": "body"
+  },
+  {
+    "id": "3703",
+    "name": "Retin-Oil",
+    "price": 20,
+    "image": "/assets/b0112c1c38-tcb-retin-oil-100ml-1-315x315.jpg",
+    "href": "/product/retin-oil/",
+    "category": "body"
+  },
+  {
+    "id": "3652",
+    "name": "Squalane Cleanser",
+    "price": 7.9,
+    "image": "/assets/7eba2dbd6d-rdn-squalane-cleanser-50ml-1-315x315.jpg",
+    "href": "/product/squalane-cleanser/",
+    "category": "face"
+  },
+  {
+    "id": "4017",
+    "name": "Gift Card",
+    "price": 50,
+    "image": "/assets/ab267f7586-crd-01-315x315.jpg",
+    "href": "/product/gift-card/",
+    "category": "face"
+  },
+  {
+    "id": "3636",
+    "name": "Set N.3",
+    "price": 60,
+    "image": "/assets/8c7549a3d3-rdn-no-brainer-set-1-315x315.jpg",
+    "href": "/product/set-n-3/",
+    "category": "face"
+  },
+  {
+    "id": "3754",
+    "name": "Volumising Conditioner",
+    "price": 39,
+    "image": "/assets/d55b84093f-Aesop-Hair-Volumising-Conditioner-500mL-large-1-315x315.jpg",
+    "href": "/product/volumising-conditioner/",
+    "category": "hair"
+  }
+]
